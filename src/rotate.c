@@ -305,17 +305,9 @@ void rotate_deinit(struct context *cnt)
  *   1  - success. Image dimensions did change.
  *   -1 - failure (shouldn't happen)
  *
- * TODO : BERTO : TODO BUT PROBABLY NOT : What I'd like to do is make a copy of the
- * image after we rotate it, regardless
- * of whether it needs rotation or not. This way we can
- * manipulate the image then throw it away in case someone
- * else wants to do something else to the original image.
- * We need to develop flags that indicate what's been done
- * to an image in the buffer. Yes, we have flags that apply
- * to the buffer....so a flag indicating the rotation and
- * what types of text have been added....the subsequent
- * functions can see if they can reuse the buffer or if they
- * need to erase it and start again.
+ * Future : Possibly make a copy of an image after
+ * rotation to cater for the case where two different 
+ * features want the same image but rotated differently.
  * 
  */
 

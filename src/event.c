@@ -1248,6 +1248,7 @@ static void event_ffmpeg_timelapse(struct context *cnt, motion_event eventtype
         event(cnt, EVENT_FILECREATE, NULL, cnt->timelapsefilename, (void *)FTYPE_MPEG_TIMELAPSE, tv1);
     }
 
+    image_prep_for_view(cnt, img_data, 0, 0); 
     if (ffmpeg_put_image(cnt->ffmpeg_timelapse, img_data, tv1) == -1) {
         MOTION_LOG(ERR, TYPE_EVENTS, NO_ERRNO, _("Error encoding image"));
     }
@@ -1262,11 +1263,13 @@ static void event_ffmpeg_put(struct context *cnt, motion_event eventtype
     (void)eventdata;
 
     if (cnt->ffmpeg_output) {
+/*	image_prep_for_view(cnt, img_data, 0, 0);   BERTO I don't think this is needed. */
         if (ffmpeg_put_image(cnt->ffmpeg_output, img_data, tv1) == -1) {
             MOTION_LOG(ERR, TYPE_EVENTS, NO_ERRNO, _("Error encoding image"));
         }
     }
     if (cnt->ffmpeg_output_motion) {
+	image_prep_for_view(cnt, &cnt->imgs.img_motion, 0, 1);
         if (ffmpeg_put_image(cnt->ffmpeg_output_motion, &cnt->imgs.img_motion, tv1) == -1) {
             MOTION_LOG(ERR, TYPE_EVENTS, NO_ERRNO, _("Error encoding image"));
         }

@@ -403,10 +403,9 @@ void image_prep_for_view(struct context *cnt, struct image_data *img, int high,
     }
 
     if (motion && !cnt->conf.picture_output_motion_rotated) {
-	MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("BERTO SKIPPING ROTATION FOR MOTION IMAGE!!!!"));
 	goto add_text;
     }
-    MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("BERTO ROTATING motion %d !!!!"), motion);
+
     if (1 == rotate_img(cnt, image, width, height)) {
 	/*
 	 * Image dimensions changed after rotation
