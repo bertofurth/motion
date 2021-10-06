@@ -1,6 +1,13 @@
+Motion with "Just in Time" Rotation
+===================================
+
+The original motion README.md file is below
+these notes.
+
 # Rotate image/Video only when saving or streaming
 
-This fork is to implement the changes suggested in 
+This fork of motion is a proposed method of implementing
+the changes suggested in 
 
 https://github.com/Motion-Project/motion/issues/1321
 
@@ -9,23 +16,22 @@ task of image rotation when images were actually
 being viewed via a web stream or when they are being
 saved.
 
-This fork proposes a change to motion that causes motion
-to store image files internally in the original / captured /
-raw format and only perform rotation just before images
-are written to files or streamed.
+This fork proposes a change to motion where it will store
+image files internally in the original / captured /
+virgin format and only perform rotation at the point where
+images are written to files or streamed.
 
-A brief test of these changes showed that when using
-"rotation 90" motion's CPU utilization in the idle
-state is reduced by about 20% on what it otherwise may have
-been. By "idle state" I mean when no streams are active and
-when no event triggered output files are being generated.
+A brief test of these changes using "rotation 90" reduced
+motion's CPU utilization in the "idle state" by about 20% on
+what it otherwise may have been. "Idle state" meams that
+no web streams are being viewed and no event triggered output 
+files are being generated.
 
 There are a number of other benefits which I'll outline
 below but first it's important to note some of the drawbacks 
-and changes that would have to be addressed.
+of these proposed changes.
 
 ## Issues
-
 ### mask_file and mask_privacy
 The basis of the new proposal is that images be stored internally
 within motion in their unrotated, unprocessed form.
@@ -43,60 +49,91 @@ this way a user can arbitrarily change the rotation or axis of the
 displayed image without having to worry about making corresponding 
 changes to the privacy mask.
 
-TODO : Maybe have a "privacy_mask_source" and "mask_file_source"
-to specify mask files that apply to the captured images.
+TODO : Maybe have a "privacy_mask_captured" and "mask_file_captured"
+boolean (on / off) configuration option to specify that mask files
+apply to the captured image dimentions.
 
-### Debug streams  and images not rotated
+### "Debug" streams and images not rotated
 The "source" (virgin) and "motion" streams are *not* rotated since
 these types of images are now stored internally as unrotated.
 
-It would not be difficult to rotate them however, in my view this
-would defeat the purpose of these streams which, as I understand it,
-are used for debugging. If they were rotated then they'd be less
-"pure" and a problem with the rotation system would impact them.
+It would not be difficult to rotate them however, in my view, this
+would be contrary to the purpose of these streams which, as I understand
+it, are used for debugging. If they were rotated then they'd be less
+"pure" and any problems with the rotation system would impact them.
 
-This also goes for "picture_output_motion" and "movie_output_motion"
+This also goes for "picture_output_motion" and "movie_output_motion".
 
 ### Error messages and debug text overlays
-Error messages or text applied to images when using log level "DBG"
-are applied to images *before* they are rotated. This means that if
-an image is rotated after one of these types of text are overlaid
-the text will also get rotated.
+Embedded error messages such as "CONNECTION TO CAMERA LOST" or text
+debugs shown when using log level "DBG" are applied to images *before*
+they are rotated. This means that if an image is subsequently rotated 
+after one of these types of text are overlaid then that text will also
+get rotated. Fixing this might be quite tedious so hopefully it's not a
+deal breaker. 
 
+### %w and %h conversion specifiers
+The %w and %h conversion specifiers will show the width and height 
+dimensions of a normal saved image. If these are used in the filename of a 
+"motion" image or movie when the normal image has been rotated 90 or 270
+degrees then they may be incorrect.
+
+Hopefully this is a minor issue that does not seriously impact anyone.
 
 ### "netcam_hires" streams
-Text overlays *will* be applied to "netcam_hires" stream outputs but
-obviously not for the video file when "movie_passthrough" is specified.
+Originally motion did not apply overlay text to "netcam_hires" images.
+
+These changes mean that text overlays *will* be applied to "netcam_hires"
+stream outputs but, as before, not for the video file when 
+"movie_passthrough" is specified.
+
+Since the "text_scale" factor will be the same as for the normal
+resolution images the text might appear to be very small on the
+hires images.
+
+Potential alternatives include
+* Disable text on hires images (like before)
+* New config option "text_scale_hires" to specify a hires specific scale factor with 0 meaning "no text".
+* Automatically calculate hires scale factor based on the ratio of hires to normal image dimensions.
 
 
+## The changes
+### Images are stored internally as unrotated and unannotated
 
-Possible future work:
+### Rotation buffers are consolidated
+Previously the rotation functions had their own buffers to perform
+90 and 270 degree rotation. These have been removed and the common_buffer
+is now used for rotation. Saves about BERTO BERTO BERTO measure!!
+
+## Future work
+### Different text/rotation for streams and saved images
 One potential extra feature that could be easily introduced with this
-change is that you could optionally apply separate rotation and text 
+change is users could optionally apply separate rotation and text 
 overlay parameters to streams and saved images.
 
-For example on the stream you could display just the date, but on 
-the saved files you could have much more information such as the number
-of changed pixels, the number of events gone by etc.
+For example, on the stream you could display just the date and time, but
+on the saved files you could add more information such as the number
+of changed pixels or different labels etc.
 
-Futhermore you could have no rotation on the stream but
-save images with a particular rotation.
+Another example might be that you could have no rotation on the stream
+but still have saved images undergo rotation or vice versa.
 
-Another idea is that you could have extra stream names that correspond to the desired rotation. For example
+Going even further, it might be possible to create extra stream types 
+using different properties. For example the normal "stream" might have no
+rotation but "stream2" may have 90 degree rotation.
 
-http://192.0.2.99:8081/101/stream90   (Rotates stream by 90 deg)
+The tradeoff of implementing this would be slightly more memory
+consumption. In addition, if multiple different output image formats were 
+being utilized simultaneously then the CPU would have to do the extra work
+of manipulating each output image in multiple ways.
 
-http://192.0.2.99:8081/101/stream180  (Rotates stream by 180 deg)
+That being said, there would be no more CPU utilization during the "idle"
+state or if only a single stream / picture output process was engaged.
 
-http://192.0.2.99:8081/101/streamflipv  (Flips stream vertically)
+### Conditional rotation.
+Perhaps during high system CPU load you could turn off rotation? I'm
+not sure if this would be appealing or not.
 
-
-Naturally the tradeoff is that if multiple different types of image manipulation parameters are being utilized at (i.e. someone viewing two different styles of stream at once) then the CPU will have to go to the extra effort of performing that extra image processing.
-
-
-
-
-![image](https://user-images.githubusercontent.com/53927348/135963949-56e0dee9-8d27-47b7-8dcf-14d24b580062.png)
 
 
 
