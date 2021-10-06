@@ -259,6 +259,50 @@ static void image_save_as_preview(struct context *cnt, struct image_data *img)
     }
 }
 
+
+/**
+ * image_add_motion_text_overlay
+ *
+ * This routine applies text to the "motion" images
+ * as seen in a stream or in setup mode.
+ *
+ * Normally this would happen after the image has already
+ * been rotated so that the text is upright.
+ *
+ * Parameters:
+ *
+ *      cnt      Pointer to the motion context structure
+ *      image    Pointer to the raw image data
+ *      width    The width in pixels of the image we are adding text to
+ *      height   Thie height in pixels
+ */
+static void image_add_motion_text_overlay (struct context *cnt, void *image,
+					   int width, int height)
+{
+
+    char tmp[PATH_MAX];
+
+    MOTION_LOG(DBG, TYPE_EVENTS, NO_ERRNO
+	       ,_("Adding motion text to image height %d width %d")
+	       ,height, width);
+
+    /*
+     * Add changed pixels to motion-images (for stream) and in
+     * setup_mode.
+     */
+    if (cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0)) {
+        sprintf(tmp, "D:%5d L:%3d N:%3d", cnt->current_image->diffs,
+                cnt->current_image->total_labels, cnt->noise);
+        draw_text(image, width, height, width - 10,
+		  height - (30 * cnt->text_scale),
+                  tmp, cnt->text_scale);
+        sprintf(tmp, "THREAD %d SETUP", cnt->threadnr);
+        draw_text(image, width, height, width - 10,
+		  height - (10 * cnt->text_scale),
+                  tmp, cnt->text_scale);
+    }
+} /* image_add_motion_text_overlay() */
+
 /**
  * image_add_text_overlay
  *
@@ -327,15 +371,14 @@ static void image_add_text_overlay (struct context *cnt, void *image,
  *      cnt      Pointer to the motion context structure
  *      img      Pointer to the image_data structure of the image
  *      high     Is this a "high" resolution version of the image?
+ *      motion   Is this a "motion" image?
  *      FUTURE : flags : Only rotate? Only text? Custom rotation or text?
- *               IMG_PREP_HIGH : Use the "high" image
- *               IMG_PREP_NO_ROT  : Don't use the standard rotation
- *               IMG_PREP_NO_TEXT : Don't add the standard text overlay
- *               BERTO : We need to align these with the IMAGE_flags
+ *
  *
  * Returns:     nothing
  */
-void image_prep_for_view(struct context *cnt, struct image_data *img, int high)
+void image_prep_for_view(struct context *cnt, struct image_data *img, int high,
+			 int motion)
 {
     int width, height;
     void *image;
@@ -358,7 +401,12 @@ void image_prep_for_view(struct context *cnt, struct image_data *img, int high)
 	height = cnt->imgs.height;
 	image = img->image_norm;
     }
-    
+
+    if (motion && !cnt->conf.picture_output_motion_rotated) {
+	MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("BERTO SKIPPING ROTATION FOR MOTION IMAGE!!!!"));
+	goto add_text;
+    }
+    MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("BERTO ROTATING motion %d !!!!"), motion);
     if (1 == rotate_img(cnt, image, width, height)) {
 	/*
 	 * Image dimensions changed after rotation
@@ -371,7 +419,13 @@ void image_prep_for_view(struct context *cnt, struct image_data *img, int high)
 	    height = cnt->imgs.display_height;
 	}
     }
-    image_add_text_overlay (cnt, image, width, height);
+
+add_text:
+    if (motion) {
+	image_add_motion_text_overlay (cnt, image, width, height);
+    } else {
+	image_add_text_overlay (cnt, image, width, height);
+    }
     /* Anything else we need to modify? */
     return;
 } /* image_prep_for_view() */
@@ -951,21 +1005,45 @@ static void init_mask_privacy(struct context *cnt)
     if (cnt->conf.mask_privacy) {
         if ((picture = myfopen(cnt->conf.mask_privacy, "r"))) {
             MOTION_LOG(INF, TYPE_ALL, NO_ERRNO, _("Opening privacy mask file"));
-            /*
-             * NOTE: The mask is expected to have the output dimensions. I.e., the mask
-             * applies to the already rotated image, not the capture image. Thus, use
-             * width and height from imgs.
-             */
-            cnt->imgs.mask_privacy = get_pgm(picture, cnt->imgs.width, cnt->imgs.height);
+	    if (cnt->conf.mask_privacy_rotated) {
+		/*
+		 * The mask_privacy pgm has the dimensions of the output image.
+		 * We need to "unrotate" the pgm so that it matches the 
+		 * captured image dimensions and orientation.
+		 */
+		cnt->imgs.mask_privacy = get_pgm(picture, cnt->imgs.display_width,
+						 cnt->imgs.display_height);
+		unrotate_pgm(cnt, cnt->imgs.mask_privacy, cnt->imgs.display_width,
+			     cnt->imgs.display_height);
+	    } else {
 
+		/*
+		 * The mask_privacy pgm file matches the captured / original
+		 * image dimensions.
+		 */
+		cnt->imgs.mask_privacy = get_pgm(picture, cnt->imgs.width,
+						 cnt->imgs.height);
+	    }
+	    
             /* We only need the "or" mask for the U & V chrominance area.  */
             cnt->imgs.mask_privacy_uv = mymalloc((cnt->imgs.height * cnt->imgs.width) / 2);
             if (cnt->imgs.size_high > 0) {
                 MOTION_LOG(INF, TYPE_ALL, NO_ERRNO
                     ,_("Opening high resolution privacy mask file"));
                 rewind(picture);
-                cnt->imgs.mask_privacy_high = get_pgm(picture, cnt->imgs.width_high, cnt->imgs.height_high);
-                cnt->imgs.mask_privacy_high_uv = mymalloc((cnt->imgs.height_high * cnt->imgs.width_high) / 2);
+		if (cnt->conf.mask_privacy_rotated) {
+		    cnt->imgs.mask_privacy_high = get_pgm(picture,
+							  cnt->imgs.display_width_high,
+							  cnt->imgs.display_height_high);
+		    unrotate_pgm(cnt, cnt->imgs.mask_privacy,
+				 cnt->imgs.display_width_high,
+				 cnt->imgs.display_height_high);
+		} else {
+		    cnt->imgs.mask_privacy_high = get_pgm(picture, cnt->imgs.width_high,
+							  cnt->imgs.height_high);		    
+		} 
+
+		cnt->imgs.mask_privacy_high_uv = mymalloc((cnt->imgs.height_high * cnt->imgs.width_high) / 2);
             }
 
             myfclose(picture);
@@ -1405,16 +1483,25 @@ static int motion_init(struct context *cnt)
     /* Load the mask file if any */
     if (cnt->conf.mask_file) {
         if ((picture = myfopen(cnt->conf.mask_file, "r"))) {
-            /*
-             * NOTE: The mask is expected to have the output dimensions. I.e., the mask
-             * applies to the already rotated image, not the capture image. Thus, use
-             * width and height from imgs.
-             */
-	    /*
-	     * BERTO : TODO : REVERSE ROTATE THE MASK FILES SO THAT THEY
-	     * MATCH THE SOURCE / VIRGIN / CAPTURED PICTURES
-	     */
-            cnt->imgs.mask = get_pgm(picture, cnt->imgs.width, cnt->imgs.height);
+	    if (cnt->conf.mask_file_rotated) {
+		/*
+                 * The mask_file pgm has the dimensions of the output image.
+                 * We need to "unrotate" the pgm so that it matches the 
+		 * captured image dimensions and orientation.
+                 */
+		cnt->imgs.mask = get_pgm(picture, cnt->imgs.display_width,
+						 cnt->imgs.display_height);
+		unrotate_pgm(cnt, cnt->imgs.mask, cnt->imgs.display_width,
+			     cnt->imgs.display_height);
+	    } else {
+		/*
+                 * The mask_file pgm file matches the captured / original
+                 * image dimensions.
+                 */
+		cnt->imgs.mask = get_pgm(picture, cnt->imgs.width,
+					 cnt->imgs.height);
+	    } 
+
             myfclose(picture);
         } else {
             MOTION_LOG(ERR, TYPE_ALL, SHOW_ERRNO
@@ -1927,7 +2014,9 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->location = old_image->location;
         cnt->current_image->total_labels = old_image->total_labels;
     }
-
+    cnt->imgs.img_motion.flags = 0;
+    cnt->imgs.preview_image.flags = 0;
+    
     /* Store time with pre_captured image */
     gettimeofday(&cnt->current_image->timestamp_tv, NULL);
 
@@ -2390,21 +2479,6 @@ static void mlp_overlay(struct context *cnt)
         overlay_fixed_mask(cnt, cnt->imgs.img_motion.image_norm);
     }
 
-    /*
-     * Add changed pixels to motion-images (for stream) in setup_mode
-     * and always overlay smartmask (not only when motion is detected)
-     */
-    if (cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0)) {
-        sprintf(tmp, "D:%5d L:%3d N:%3d", cnt->current_image->diffs,
-                cnt->current_image->total_labels, cnt->noise);
-        draw_text(cnt->imgs.img_motion.image_norm, cnt->imgs.width, cnt->imgs.height,
-                  cnt->imgs.width - 10, cnt->imgs.height - (30 * cnt->text_scale),
-                  tmp, cnt->text_scale);
-        sprintf(tmp, "THREAD %d SETUP", cnt->threadnr);
-        draw_text(cnt->imgs.img_motion.image_norm, cnt->imgs.width, cnt->imgs.height,
-                  cnt->imgs.width - 10, cnt->imgs.height - (10 * cnt->text_scale),
-                  tmp, cnt->text_scale);
-    }
 }
 
 static void mlp_actions(struct context *cnt)

@@ -401,6 +401,88 @@ int rotate_img(struct context *cnt, unsigned char *img, int width, int height){
 	return -1;
     }
     return 0;
-}
+} /* rotate_img() */
 
+
+
+/**
+ * unrotate_pgm
+ *
+ *  Convert pgm data as output from get_pgm() from being 
+ *  based on the normal output picture dimensions to 
+ *  matching the captured image dimensions.
+ *
+ * Parameters:
+ *
+ *   cnt - the current thread's context structure
+ *   pgm - pointer to pgm data as output by get_pgm()
+ *   width - the *original* width of the pgm data
+ *   height - the *original* height of the pgm data
+ *
+ * Returns:
+ *
+ *   0  - success. Image dimensions didn't change.
+ *   1  - success. Image dimensions did change.
+ *   -1 - failure (shouldn't happen)
+ *
+ */
+
+int unrotate_pgm(struct context *cnt, unsigned char *pgm, int width, int height){
+
+    int wh, deg;
+    enum FLIP_TYPE axis;
+    unsigned char *temp_buff;
+
+    if (cnt->rotate_data.degrees == 0 && cnt->rotate_data.axis == FLIP_TYPE_NONE) return 0;
+
+    deg = cnt->rotate_data.degrees;
+    axis = cnt->rotate_data.axis;
+    temp_buff = cnt->imgs.common_buffer;
+
+    MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO
+	       ,_("Unrotating pgm height %d width %d degrees %d axis %d")
+	       ,height, width, deg, axis);
+    /*
+     * Pre-calculate some stuff:
+     *  wh   - size of the pgm data
+     */
+    wh = width * height;
+
+    switch (axis) {
+    case FLIP_TYPE_HORIZONTAL:
+	flip_inplace_horizontal(pgm, width, height);
+	break;
+    case FLIP_TYPE_VERTICAL:
+	flip_inplace_vertical(pgm, width, height);
+	break;
+    default:
+	break;
+    }
+
+    /*
+     * Remember we are rotating "backwards" here
+     * so we are rotating counter clockwise.
+     */
+    switch (deg) {
+    case 0:
+	break;
+    case 90:
+	rot90ccw(pgm, temp_buff, wh, width, height);
+	memcpy(pgm, temp_buff, wh);
+	return 1;  /* Dimensions changed */
+	break;
+    case 180:
+	reverse_inplace_quad(pgm, wh);
+	break;
+    case 270:
+	rot90cw(pgm, temp_buff, wh, width, height);
+	memcpy(pgm, temp_buff, wh);
+	return 1;  /* Dimensions changed */
+	break;
+    default:
+	/* Invalid */
+	return -1;
+    }
+    return 0;
+} /* unrotate_pgm */
 

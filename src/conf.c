@@ -97,7 +97,9 @@ struct config conf_template = {
     .despeckle_filter =                NULL,
     .area_detect =                     NULL,
     .mask_file =                       NULL,
+    .mask_file_rotated =               1,
     .mask_privacy =                    NULL,
+    .mask_privacy_rotated =            1,
     .smart_mask_speed =                0,
     .lightswitch_percent =             0,
     .lightswitch_frames =              5,
@@ -120,6 +122,7 @@ struct config conf_template = {
     /* Picture output configuration parameters */
     .picture_output =                  "off",
     .picture_output_motion =           FALSE,
+    .picture_output_motion_rotated =   TRUE,
     .picture_type =                    "jpeg",
     .picture_quality =                 75,
     .picture_exif =                    NULL,
@@ -693,12 +696,30 @@ config_param config_params[] = {
     WEBUI_LEVEL_ADVANCED
     },
     {
+    "mask_file_rotated",
+    "# Is the mask_file pgm oriented to match the output image format.",
+    0,
+    CONF_OFFSET(mask_file_rotated),
+    copy_bool,
+    print_bool,
+    WEBUI_LEVEL_ADVANCED
+    },
+    {
     "mask_privacy",
     "# Full path and file name for privacy mask PGM file.",
     0,
     CONF_OFFSET(mask_privacy),
     copy_string,
     print_string,
+    WEBUI_LEVEL_ADVANCED
+    },
+    {
+    "mask_privacy_rotated",
+    "# Is the mask_privacy pgm oriented to match the output image format.",
+    0,
+    CONF_OFFSET(mask_privacy_rotated),
+    copy_bool,
+    print_bool,
     WEBUI_LEVEL_ADVANCED
     },
     {
@@ -865,6 +886,15 @@ config_param config_params[] = {
     "# Output pictures with only the pixels moving object (ghost images)",
     0,
     CONF_OFFSET(picture_output_motion),
+    copy_bool,
+    print_bool,
+    WEBUI_LEVEL_LIMITED
+    },
+    {
+    "picture_output_motion_rotated",
+    "# Rotate motion images, movies and streams as per normal images",
+    0,
+    CONF_OFFSET(picture_output_motion_rotated),
     copy_bool,
     print_bool,
     WEBUI_LEVEL_LIMITED
@@ -3297,7 +3327,9 @@ static void config_parms_intl()
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","despeckle_filter",_("despeckle_filter"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","area_detect",_("area_detect"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_file",_("mask_file"));
+	MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_file_rotated",_("mask_file_rotated"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_privacy",_("mask_privacy"));
+	MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_privacy_rotated",_("mask_privacy_rotated"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","smart_mask_speed",_("smart_mask_speed"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","lightswitch_percent",_("lightswitch_percent"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","lightswitch_frames",_("lightswitch_frames"));

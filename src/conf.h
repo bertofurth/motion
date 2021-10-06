@@ -87,7 +87,9 @@ struct config {
     const char      *despeckle_filter;
     const char      *area_detect;
     const char      *mask_file;
+    int             mask_file_rotated;
     const char      *mask_privacy;
+    int             mask_privacy_rotated;
     int             smart_mask_speed;
     int             lightswitch_percent;
     int             lightswitch_frames;
@@ -110,6 +112,7 @@ struct config {
     /* Picture output configuration parameters */
     const char      *picture_output;
     int             picture_output_motion;
+    int             picture_output_motion_rotated;
     const char      *picture_type;
     int             picture_quality;
     const char      *picture_exif;

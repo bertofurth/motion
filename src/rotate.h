@@ -76,4 +76,28 @@ void rotate_deinit(struct context *cnt);
  *   -1 - failure (rare, shouldn't happen)
  */
 int rotate_img(struct context *cnt, unsigned char *img, int width, int height);
+
+/**
+ * unrotate_pgm
+ *
+ *  Convert pgm data as output from get_pgm() from being
+ *  based on the normal output picture dimensions to
+ *  matching the captured image dimensions.
+ *
+ * Parameters:
+ *
+ *   cnt - the current thread's context structure
+ *   pgm - pointer to pgm data as output by get_pgm()
+ *   width - the *original* width of the pgm data
+ *   height - the *original* height of the pgm data
+ *
+ * Returns:
+ *
+ *   0  - success. Image dimensions didn't change.
+ *   1  - success. Image dimensions did change.
+ *   -1 - failure (shouldn't happen)
+ *
+ */
+int unrotate_pgm(struct context *cnt, unsigned char *pgm, int width, int height);
+
 #endif
