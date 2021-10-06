@@ -49,9 +49,9 @@ void rotate_init(struct context *cnt);
 void rotate_deinit(struct context *cnt);
 
 /**
- * rotate_map
+ * rotate_img
  *
- *  Rotates the image stored in img according to the rotation data
+ *  Rotates the raw image stored in img according to the rotation data
  *  available in cnt. Rotation is performed clockwise. Supports 90,
  *  180 and 270 degrees rotation. 180 degrees rotation is performed
  *  in-place by simply reversing the image data, which is a very
@@ -64,14 +64,16 @@ void rotate_deinit(struct context *cnt);
  *
  * Parameters:
  *
- *   img_data - the image data to rotate
  *   cnt - current thread's context structure
+ *   img - pointer to the raw image data to rotate in place
+ *   width - the *original* width of the image
+ *   height - the *original* height of the image
  *
  * Returns:
  *
- *   0  - success
+ *   0  - success. Image dimensions didn't change.
+ *   1  - success. Image dimensions got swapped.
  *   -1 - failure (rare, shouldn't happen)
  */
-int rotate_map(struct context *cnt, struct image_data *img_data);
-
+int rotate_img(struct context *cnt, unsigned char *img, int width, int height);
 #endif

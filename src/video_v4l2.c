@@ -27,7 +27,6 @@
 #include "motion.h"
 #include "util.h"
 #include "logger.h"
-#include "rotate.h"
 #include "video_common.h"
 #include "video_v4l2.h"
 #include <sys/mman.h>
@@ -1670,9 +1669,6 @@ int v4l2_next(struct context *cnt, struct image_data *img_data)
             dev->frames = 0;
             pthread_mutex_unlock(&dev->mutex);
         }
-
-        /* Rotate the image as specified. */
-        rotate_map(cnt, img_data);
 
         return ret;
     #else

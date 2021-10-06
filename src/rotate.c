@@ -206,11 +206,7 @@ static inline void rot90ccw(unsigned char *src, register unsigned char *dst
  */
 void rotate_init(struct context *cnt)
 {
-    int size_norm, size_high;
-
-    /* Make sure buffer_norm isn't freed if it hasn't been allocated. */
-    cnt->rotate_data.buffer_norm = NULL;
-    cnt->rotate_data.buffer_high = NULL;
+    int size_norm, size_high, needed_buffer_size;
 
     /*
      * Assign the value in conf.rotate to rotate_data.degrees. This way,
@@ -240,50 +236,38 @@ void rotate_init(struct context *cnt)
      * netcam source).
      *
      * If rotating 90 or 270 degrees, the capture dimensions and output dimensions
-     * are not the same. Capture dimensions will be contained in capture_width_norm and
-     * capture_height_norm in cnt->rotate_data, while output dimensions will be contained
-     * in imgs.width and imgs.height.
+     * are not the same. Output dimensions are set in imgs.display_width and
+     * imgs.display_height. Same for *_high for hires image dimensions.
      */
-
-    /* 1. Transfer capture dimensions into capture_width_norm and capture_height_norm. */
-    cnt->rotate_data.capture_width_norm  = cnt->imgs.width;
-    cnt->rotate_data.capture_height_norm = cnt->imgs.height;
-
-    cnt->rotate_data.capture_width_high  = cnt->imgs.width_high;
-    cnt->rotate_data.capture_height_high = cnt->imgs.height_high;
 
     size_norm = cnt->imgs.width * cnt->imgs.height * 3 / 2;
     size_high = cnt->imgs.width_high * cnt->imgs.height_high * 3 / 2;
 
-    if ((cnt->rotate_data.degrees == 90) || (cnt->rotate_data.degrees == 270)) {
-        /* 2. "Swap" imgs.width and imgs.height. */
-        cnt->imgs.width = cnt->rotate_data.capture_height_norm;
-        cnt->imgs.height = cnt->rotate_data.capture_width_norm;
-        if (size_high > 0 ) {
-            cnt->imgs.width_high = cnt->rotate_data.capture_height_high;
-            cnt->imgs.height_high = cnt->rotate_data.capture_width_high;
-        }
+    if (cnt->rotate_data.degrees == 0 || cnt->rotate_data.degrees == 180) {
+	cnt->imgs.display_width = cnt->imgs.width;
+	cnt->imgs.display_height = cnt->imgs.height;
+	if (size_high > 0 ) {
+	    cnt->imgs.display_width_high = cnt->imgs.width_high;
+	    cnt->imgs.display_height_high = cnt->imgs.height_high;
+	}
+    } else {
+	/*
+	 * Allocate memory if rotating 90 or 270 degrees, because those rotations
+	 * cannot be performed in-place (they can, but it would be too slow).
+	 */
+	needed_buffer_size = size_high > size_norm ? size_high : size_norm;
+	if (needed_buffer_size > cnt->imgs.common_buffer_size) {
+	    free(cnt->imgs.common_buffer);
+	    cnt->imgs.common_buffer_size = needed_buffer_size;
+	    cnt->imgs.common_buffer = mymalloc(needed_buffer_size);
+	}
+	cnt->imgs.display_width = cnt->imgs.height;
+	cnt->imgs.display_height = cnt->imgs.width;
+	if (size_high > 0 ) {
+	    cnt->imgs.display_width_high = cnt->imgs.height_high;
+	    cnt->imgs.display_height_high = cnt->imgs.width_high;
+	}
     }
-
-    /*
-     * If we're not rotating, let's exit once we have setup the capture dimensions
-     * and output dimensions properly.
-     */
-    if (cnt->rotate_data.degrees == 0) {
-        return;
-    }
-
-    /*
-     * Allocate memory if rotating 90 or 270 degrees, because those rotations
-     * cannot be performed in-place (they can, but it would be too slow).
-     */
-    if ((cnt->rotate_data.degrees == 90) || (cnt->rotate_data.degrees == 270)) {
-        cnt->rotate_data.buffer_norm = mymalloc(size_norm);
-        if (size_high > 0) {
-            cnt->rotate_data.buffer_high = mymalloc(size_high);
-        }
-    }
-
 }
 
 /**
@@ -300,32 +284,42 @@ void rotate_init(struct context *cnt)
 void rotate_deinit(struct context *cnt)
 {
 
-    if (cnt->rotate_data.buffer_norm) {
-        free(cnt->rotate_data.buffer_norm);
-    }
-
-    if (cnt->rotate_data.buffer_high) {
-        free(cnt->rotate_data.buffer_high);
-    }
 }
 
+
 /**
- * rotate_map
+ * rotate_img
  *
  *  Main entry point for rotation.
  *
  * Parameters:
  *
- *   img_data- pointer to the image data to rotate
  *   cnt - the current thread's context structure
+ *   img - pointer to the raw image data to rotate in place
+ *   width - the *original* width of the image
+ *   height - the *original* height of the image
  *
  * Returns:
  *
- *   0  - success
+ *   0  - success. Image dimensions didn't change.
+ *   1  - success. Image dimensions did change.
  *   -1 - failure (shouldn't happen)
+ *
+ * TODO : BERTO : TODO BUT PROBABLY NOT : What I'd like to do is make a copy of the
+ * image after we rotate it, regardless
+ * of whether it needs rotation or not. This way we can
+ * manipulate the image then throw it away in case someone
+ * else wants to do something else to the original image.
+ * We need to develop flags that indicate what's been done
+ * to an image in the buffer. Yes, we have flags that apply
+ * to the buffer....so a flag indicating the rotation and
+ * what types of text have been added....the subsequent
+ * functions can see if they can reuse the buffer or if they
+ * need to erase it and start again.
+ * 
  */
-int rotate_map(struct context *cnt, struct image_data *img_data)
-{
+
+int rotate_img(struct context *cnt, unsigned char *img, int width, int height){
     /*
      * The image format is YUV 4:2:0 planar, which has the pixel
      * data is divided in three parts:
@@ -334,95 +328,79 @@ int rotate_map(struct context *cnt, struct image_data *img_data)
      *    V - as U
      */
 
-    int indx, indx_max;
     int wh, wh4 = 0, w2 = 0, h2 = 0;  /* width * height, width * height / 4 etc. */
     int size, deg;
     enum FLIP_TYPE axis;
-    int width, height;
-    unsigned char *img;
     unsigned char *temp_buff;
 
-    if (cnt->rotate_data.degrees == 0 && cnt->rotate_data.axis == FLIP_TYPE_NONE) {
-        return 0;
+    if (cnt->rotate_data.degrees == 0 && cnt->rotate_data.axis == FLIP_TYPE_NONE) return 0;
+
+    deg = cnt->rotate_data.degrees;
+    axis = cnt->rotate_data.axis;
+    wh4 = 0;
+    w2 = 0;
+    h2 = 0;
+    temp_buff = cnt->imgs.common_buffer;
+
+    MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO
+	       ,_("Rotating image height %d width %d degrees %d axis %d")
+	       ,height, width, deg, axis);
+    /*
+     * Pre-calculate some stuff:
+     *  wh   - size of the Y plane
+     *  size - size of the entire memory block
+     *  wh4  - size of the U plane, and the V plane
+     *  w2   - width of the U plane, and the V plane
+     *  h2   - as w2, but height instead
+     */
+    wh = width * height;
+    size = wh * 3 / 2;
+    wh4 = wh / 4;
+    w2 = width / 2;
+    h2 = height / 2;
+
+    switch (axis) {
+    case FLIP_TYPE_HORIZONTAL:
+	flip_inplace_horizontal(img,width, height);
+	flip_inplace_horizontal(img + wh, w2, h2);
+	flip_inplace_horizontal(img + wh + wh4, w2, h2);
+	break;
+    case FLIP_TYPE_VERTICAL:
+	flip_inplace_vertical(img,width, height);
+	flip_inplace_vertical(img + wh, w2, h2);
+	flip_inplace_vertical(img + wh + wh4, w2, h2);
+	break;
+    default:
+	break;
     }
 
-    indx = 0;
-    indx_max = 0;
-    if ((cnt->rotate_data.capture_width_high != 0) && (cnt->rotate_data.capture_height_high != 0)) {
-        indx_max = 1;
+    switch (deg) {
+    case 0:
+	break;
+    case 90:
+	rot90cw(img, temp_buff, wh, width, height);
+	rot90cw(img + wh, temp_buff + wh, wh4, w2, h2);
+	rot90cw(img + wh + wh4, temp_buff + wh + wh4, wh4, w2, h2);
+	memcpy(img, temp_buff, size);
+	return 1;  /* Dimensions changed */
+	break;
+    case 180:
+	reverse_inplace_quad(img, wh);
+	reverse_inplace_quad(img + wh, wh4);
+	reverse_inplace_quad(img + wh + wh4, wh4);
+	break;
+    case 270:
+	rot90ccw(img, temp_buff, wh, width, height);
+	rot90ccw(img + wh, temp_buff + wh, wh4, w2, h2);
+	rot90ccw(img + wh + wh4, temp_buff + wh + wh4, wh4, w2, h2);
+	memcpy(img, temp_buff, size);
+	return 1;  /* Dimensions changed */
+	break;
+    default:
+	/* Invalid */
+	return -1;
     }
-
-    while (indx <= indx_max) {
-        deg = cnt->rotate_data.degrees;
-        axis = cnt->rotate_data.axis;
-        wh4 = 0;
-        w2 = 0;
-        h2 = 0;
-        if (indx == 0) {
-            img = img_data->image_norm;
-            width = cnt->rotate_data.capture_width_norm;
-            height = cnt->rotate_data.capture_height_norm;
-            temp_buff = cnt->rotate_data.buffer_norm;
-        } else {
-            img = img_data->image_high;
-            width = cnt->rotate_data.capture_width_high;
-            height = cnt->rotate_data.capture_height_high;
-            temp_buff = cnt->rotate_data.buffer_high;
-        }
-        /*
-         * Pre-calculate some stuff:
-         *  wh   - size of the Y plane
-         *  size - size of the entire memory block
-         *  wh4  - size of the U plane, and the V plane
-         *  w2   - width of the U plane, and the V plane
-         *  h2   - as w2, but height instead
-         */
-        wh = width * height;
-        size = wh * 3 / 2;
-        wh4 = wh / 4;
-        w2 = width / 2;
-        h2 = height / 2;
-
-        switch (axis) {
-        case FLIP_TYPE_HORIZONTAL:
-            flip_inplace_horizontal(img,width, height);
-            flip_inplace_horizontal(img + wh, w2, h2);
-            flip_inplace_horizontal(img + wh + wh4, w2, h2);
-            break;
-        case FLIP_TYPE_VERTICAL:
-            flip_inplace_vertical(img,width, height);
-            flip_inplace_vertical(img + wh, w2, h2);
-            flip_inplace_vertical(img + wh + wh4, w2, h2);
-            break;
-        default:
-            break;
-        }
-
-        switch (deg) {
-        case 90:
-            rot90cw(img, temp_buff, wh, width, height);
-            rot90cw(img + wh, temp_buff + wh, wh4, w2, h2);
-            rot90cw(img + wh + wh4, temp_buff + wh + wh4, wh4, w2, h2);
-            memcpy(img, temp_buff, size);
-            break;
-        case 180:
-            reverse_inplace_quad(img, wh);
-            reverse_inplace_quad(img + wh, wh4);
-            reverse_inplace_quad(img + wh + wh4, wh4);
-            break;
-        case 270:
-            rot90ccw(img, temp_buff, wh, width, height);
-            rot90ccw(img + wh, temp_buff + wh, wh4, w2, h2);
-            rot90ccw(img + wh + wh4, temp_buff + wh + wh4, wh4, w2, h2);
-            memcpy(img, temp_buff, size);
-            break;
-        default:
-            /* Invalid */
-            return -1;
-        }
-            indx++;
-    }
-
     return 0;
 }
+
 

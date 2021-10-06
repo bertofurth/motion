@@ -44,7 +44,6 @@
 #include "motion.h"
 #include "util.h"
 #include "logger.h"
-#include "rotate.h"
 #include "netcam.h"
 #include "netcam_rtsp.h"
 #include "video_v4l2.h"  /* Needed to validate palette for v4l2 via netcam */
@@ -2172,9 +2171,6 @@ int netcam_rtsp_next(struct context *cnt, struct image_data *img_data)
                 img_data->idnbr_high = cnt->rtsp_high->idnbr;
             pthread_mutex_unlock(&cnt->rtsp_high->mutex);
         }
-
-        /* Rotate images if requested */
-        rotate_map(cnt, img_data);
 
         return 0;
 

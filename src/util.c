@@ -533,11 +533,11 @@ size_t mystrftime(const struct context *cnt, char *s, size_t max, const char *us
                 break;
 
             case 'w': // picture width
-                sprintf(tempstr, "%*d", width, cnt->imgs.width);
+                sprintf(tempstr, "%*d", width, cnt->imgs.display_width);
                 break;
 
             case 'h': // picture height
-                sprintf(tempstr, "%*d", width, cnt->imgs.height);
+                sprintf(tempstr, "%*d", width, cnt->imgs.display_height);
                 break;
 
             case 'f': // filename -- or %fps

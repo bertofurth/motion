@@ -26,7 +26,6 @@
 #include "motion.h"
 #include "util.h"
 #include "logger.h"
-#include "rotate.h"
 #include "video_common.h"
 #include "video_bktr.h"
 
@@ -994,8 +993,8 @@ int bktr_next(struct context *cnt,  struct image_data *img_data)
         int ret = -1;
 
         /* NOTE: Since this is a capture, we need to use capture dimensions. */
-        width = cnt->rotate_data.capture_width_norm;
-        height = cnt->rotate_data.capture_height_norm;
+        width = cnt->imgs.width;
+        height = cnt->imgs.height;
 
         pthread_mutex_lock(&bktr_mutex);
         dev = viddevs;
@@ -1029,9 +1028,6 @@ int bktr_next(struct context *cnt,  struct image_data *img_data)
             dev->frames = 0;
             pthread_mutex_unlock(&dev->mutex);
         }
-
-        /* Rotate the image as specified */
-        rotate_map(cnt, img_data);
 
         return ret;
     #else

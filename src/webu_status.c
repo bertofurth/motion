@@ -186,8 +186,8 @@ static void webu_json_cam_status_single(struct webui_ctx *webui, struct context 
              ", \"missing_frame_counter\": %u"
              ", \"running\": %u"
              ", \"lost_connection\": %u"
-             , cnt->imgs.width
-             , cnt->imgs.height
+             , cnt->imgs.display_width
+             , cnt->imgs.display_height
              , cnt->lastrate
              , cnt->missing_frame_counter
              , cnt->running

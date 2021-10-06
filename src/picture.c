@@ -790,19 +790,8 @@ int put_picture_memory(struct context *cnt, unsigned char* dest_image, int image
 }
 
 static void put_picture_fd(struct context *cnt, FILE *picture, unsigned char *image
-            , int quality, int ftype)
+			   , int quality, int ftype, int width, int height)
 {
-    int width, height, passthrough;
-
-    passthrough = util_check_passthrough(cnt);
-    if ((ftype == FTYPE_IMAGE) && (cnt->imgs.size_high > 0) && (!passthrough)) {
-        width = cnt->imgs.width_high;
-        height = cnt->imgs.height_high;
-    } else {
-        width = cnt->imgs.width;
-        height = cnt->imgs.height;
-    }
-
     if (cnt->imgs.picture_type == IMAGE_TYPE_PPM) {
         put_ppm_bgr24_file(picture, image, width, height);
 
@@ -821,7 +810,8 @@ static void put_picture_fd(struct context *cnt, FILE *picture, unsigned char *im
 
 }
 
-void put_picture(struct context *cnt, char *file, unsigned char *image, int ftype)
+void put_picture(struct context *cnt, char *file, unsigned char *image, int ftype,
+		 int width, int height)
 {
     FILE *picture;
 
@@ -843,7 +833,8 @@ void put_picture(struct context *cnt, char *file, unsigned char *image, int ftyp
         }
     }
 
-    put_picture_fd(cnt, picture, image, cnt->conf.picture_quality, ftype);
+    put_picture_fd(cnt, picture, image, cnt->conf.picture_quality, ftype,
+		   width, height);
 
     myfclose(picture);
 }

@@ -30,7 +30,6 @@
 #include "util.h"
 #include "logger.h"
 #include "netcam.h"
-#include "rotate.h"
 
 #ifdef HAVE_MMAL
 
@@ -440,8 +439,6 @@ int mmalcam_next(struct context *cnt,  struct image_data *img_data)
                 ,_("Unable to return a buffer to the camera video port"));
         }
     }
-
-    rotate_map(cnt,img_data);
 
     return 0;
 }

@@ -30,7 +30,6 @@
 #include "motion.h"
 #include "util.h"
 #include "logger.h"
-#include "rotate.h"
 #include "netcam.h"
 #include "netcam_jpeg.h"
 
@@ -451,8 +450,6 @@ static int netcam_image_conv(netcam_context_ptr netcam, struct jpeg_decompress_s
 
     jpeg_finish_decompress(cinfo);
     jpeg_destroy_decompress(cinfo);
-
-    rotate_map(netcam->cnt, img_data);
 
     if (netcam->jpeg_error) {
         MOTION_LOG(DBG, TYPE_NETCAM, NO_ERRNO,_("jpeg_error %d"), netcam->jpeg_error);

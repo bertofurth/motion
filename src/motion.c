@@ -260,6 +260,123 @@ static void image_save_as_preview(struct context *cnt, struct image_data *img)
 }
 
 /**
+ * image_add_text_overlay
+ *
+ * This routine applies configured text to the image.
+ * Normally this would happen after the image has already
+ * been rotated so that the text is upright.
+ *
+ * Parameters:
+ *
+ *      cnt      Pointer to the motion context structure
+ *      image    Pointer to the raw image data
+ *      width    The width in pixels of the image we are adding text to
+ *      height   Thie height in pixels
+ *      FUTURE : motion, other : Is this a "motion" or other special type of image?
+ */
+static void image_add_text_overlay (struct context *cnt, void *image,
+				    int width, int height)
+{
+
+    char tmp[PATH_MAX];
+
+    MOTION_LOG(DBG, TYPE_EVENTS, NO_ERRNO
+	       ,_("Adding text to image height %d width %d")
+	       ,height, width);
+
+    /* Add changed pixels in upper right corner of the pictures */
+    if (cnt->conf.text_changes) {
+	if (!cnt->pause)
+	    sprintf(tmp, "%d", cnt->current_image->diffs);
+	else
+	    sprintf(tmp, "-");
+
+	draw_text(image, width, height, width - 10, 10, tmp, cnt->text_scale);
+    }
+
+    /* Add text in lower left corner of the pictures */
+    if (cnt->conf.text_left) {
+	mystrftime(cnt, tmp, sizeof(tmp), cnt->conf.text_left,
+		   &cnt->current_image->timestamp_tv, NULL, 0);
+	draw_text(image, width, height, 10,
+		  height - (10 * cnt->text_scale),
+		  tmp, cnt->text_scale);
+    }
+    
+    /* Add text in lower right corner of the pictures */
+    if (cnt->conf.text_right) {
+	mystrftime(cnt, tmp, sizeof(tmp), cnt->conf.text_right,
+		   &cnt->current_image->timestamp_tv, NULL, 0);
+	draw_text(image, width, height,
+		  width - 10, height - (10 * cnt->text_scale),
+		  tmp, cnt->text_scale);
+    }
+} /* image_add_text_overlay() */
+
+
+/**
+ * image_prep_for_view
+ *
+ * This routine is called to apply needed changes to an image
+ * before it is streamed or saved. These changes are
+ *   - Add overlay text
+ *   - Rotate and flip
+ *
+ * Parameters:
+ *
+ *      cnt      Pointer to the motion context structure
+ *      img      Pointer to the image_data structure of the image
+ *      high     Is this a "high" resolution version of the image?
+ *      FUTURE : flags : Only rotate? Only text? Custom rotation or text?
+ *               IMG_PREP_HIGH : Use the "high" image
+ *               IMG_PREP_NO_ROT  : Don't use the standard rotation
+ *               IMG_PREP_NO_TEXT : Don't add the standard text overlay
+ *               BERTO : We need to align these with the IMAGE_flags
+ *
+ * Returns:     nothing
+ */
+void image_prep_for_view(struct context *cnt, struct image_data *img, int high)
+{
+    int width, height;
+    void *image;
+
+    /* Determine the raw image dimensions  */
+    if (high) {
+	if (img->flags & IMAGE_HIGH_VIEWED) {
+	    return;
+	}
+	img->flags |= IMAGE_HIGH_VIEWED;
+	width = cnt->imgs.width_high;
+	height = cnt->imgs.height_high;
+	image = img->image_high;
+    } else {
+	if (img->flags & IMAGE_NORM_VIEWED) {
+	    return;
+	}
+	img->flags |= IMAGE_NORM_VIEWED;
+	width = cnt->imgs.width;
+	height = cnt->imgs.height;
+	image = img->image_norm;
+    }
+    
+    if (1 == rotate_img(cnt, image, width, height)) {
+	/*
+	 * Image dimensions changed after rotation
+	 */
+	if (high) {
+	    width = cnt->imgs.display_width_high;
+	    height = cnt->imgs.display_height_high;
+	} else {
+	    width = cnt->imgs.display_width;
+	    height = cnt->imgs.display_height;
+	}
+    }
+    image_add_text_overlay (cnt, image, width, height);
+    /* Anything else we need to modify? */
+    return;
+} /* image_prep_for_view() */
+
+/**
  * context_init
  *
  *   Initializes a context struct with the default values for all the
@@ -1065,6 +1182,8 @@ static int motion_init(struct context *cnt)
     /* Make sure to default the high res to zero */
     cnt->imgs.width_high = 0;
     cnt->imgs.height_high = 0;
+    cnt->imgs.display_width_high = 0;
+    cnt->imgs.display_height_high = 0;
     cnt->imgs.size_high = 0;
     cnt->movie_passthrough = cnt->conf.movie_passthrough;
     cnt->pause = cnt->conf.pause;
@@ -1179,7 +1298,12 @@ static int motion_init(struct context *cnt)
     cnt->imgs.labels = mymalloc(cnt->imgs.motionsize * sizeof(*cnt->imgs.labels));
     cnt->imgs.labelsize = mymalloc((cnt->imgs.motionsize/2+1) * sizeof(*cnt->imgs.labelsize));
     cnt->imgs.preview_image.image_norm = mymalloc(cnt->imgs.size_norm);
-    cnt->imgs.common_buffer = mymalloc(3 * cnt->imgs.width * cnt->imgs.height);
+    /*
+     * common_buffer is potentially used to rotate hires images
+     * so this buffer might be increased later.
+     */
+    cnt->imgs.common_buffer_size = 3 * cnt->imgs.width * cnt->imgs.height;
+    cnt->imgs.common_buffer = mymalloc(cnt->imgs.common_buffer_size);
     if (cnt->imgs.size_high > 0) {
         cnt->imgs.image_virgin.image_high = mymalloc(cnt->imgs.size_high);
         cnt->imgs.preview_image.image_high = mymalloc(cnt->imgs.size_high);
@@ -1212,7 +1336,7 @@ static int motion_init(struct context *cnt)
      * in vid_start. When capturing from a netcam, they get set in netcam_start,
      * which is called from vid_start.
      *
-     * rotate_init will set cap_width and cap_height in cnt->rotate_data.
+     * rotate_init will set display_width and display_height.
      */
     rotate_init(cnt); /* rotate_deinit is called in main */
 
@@ -1248,7 +1372,8 @@ static int motion_init(struct context *cnt)
                 ,_("Opening video loopback device for normal pictures"));
 
             /* vid_startpipe should get the output dimensions */
-            cnt->pipe = vlp_startpipe(cnt->conf.video_pipe, cnt->imgs.width, cnt->imgs.height);
+            cnt->pipe = vlp_startpipe(cnt->conf.video_pipe, cnt->imgs.display_width,
+				      cnt->imgs.display_height);
 
             if (cnt->pipe < 0) {
                 MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO
@@ -1285,6 +1410,10 @@ static int motion_init(struct context *cnt)
              * applies to the already rotated image, not the capture image. Thus, use
              * width and height from imgs.
              */
+	    /*
+	     * BERTO : TODO : REVERSE ROTATE THE MASK FILES SO THAT THEY
+	     * MATCH THE SOURCE / VIRGIN / CAPTURED PICTURES
+	     */
             cnt->imgs.mask = get_pgm(picture, cnt->imgs.width, cnt->imgs.height);
             myfclose(picture);
         } else {
@@ -1500,6 +1629,7 @@ static void motion_cleanup(struct context *cnt)
 
     free(cnt->imgs.common_buffer);
     cnt->imgs.common_buffer = NULL;
+    cnt->imgs.common_buffer_size = 0;
 
     free(cnt->imgs.preview_image.image_norm);
     cnt->imgs.preview_image.image_norm = NULL;
@@ -1793,7 +1923,7 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->timestamp_tv = old_image->timestamp_tv;
         cnt->current_image->shot = old_image->shot;
         cnt->current_image->cent_dist = old_image->cent_dist;
-        cnt->current_image->flags = old_image->flags & (~IMAGE_SAVED);
+        cnt->current_image->flags = old_image->flags & (~(IMAGE_SAVED | IMAGE_PROCESS_FLAGS));
         cnt->current_image->location = old_image->location;
         cnt->current_image->total_labels = old_image->total_labels;
     }
@@ -2260,18 +2390,6 @@ static void mlp_overlay(struct context *cnt)
         overlay_fixed_mask(cnt, cnt->imgs.img_motion.image_norm);
     }
 
-    /* Add changed pixels in upper right corner of the pictures */
-    if (cnt->conf.text_changes) {
-        if (!cnt->pause) {
-            sprintf(tmp, "%d", cnt->current_image->diffs);
-        } else {
-            sprintf(tmp, "-");
-        }
-
-        draw_text(cnt->current_image->image_norm, cnt->imgs.width, cnt->imgs.height,
-                  cnt->imgs.width - 10, 10, tmp, cnt->text_scale);
-    }
-
     /*
      * Add changed pixels to motion-images (for stream) in setup_mode
      * and always overlay smartmask (not only when motion is detected)
@@ -2287,24 +2405,6 @@ static void mlp_overlay(struct context *cnt)
                   cnt->imgs.width - 10, cnt->imgs.height - (10 * cnt->text_scale),
                   tmp, cnt->text_scale);
     }
-
-    /* Add text in lower left corner of the pictures */
-    if (cnt->conf.text_left) {
-        mystrftime(cnt, tmp, sizeof(tmp), cnt->conf.text_left,
-                   &cnt->current_image->timestamp_tv, NULL, 0);
-        draw_text(cnt->current_image->image_norm, cnt->imgs.width, cnt->imgs.height,
-                  10, cnt->imgs.height - (10 * cnt->text_scale), tmp, cnt->text_scale);
-    }
-
-    /* Add text in lower right corner of the pictures */
-    if (cnt->conf.text_right) {
-        mystrftime(cnt, tmp, sizeof(tmp), cnt->conf.text_right,
-                   &cnt->current_image->timestamp_tv, NULL, 0);
-        draw_text(cnt->current_image->image_norm, cnt->imgs.width, cnt->imgs.height,
-                  cnt->imgs.width - 10, cnt->imgs.height - (10 * cnt->text_scale),
-                  tmp, cnt->text_scale);
-    }
-
 }
 
 static void mlp_actions(struct context *cnt)

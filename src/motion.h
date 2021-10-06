@@ -222,6 +222,10 @@ struct ffmpeg;
 #define IMAGE_SAVED      8
 #define IMAGE_PRECAP    16
 #define IMAGE_POSTCAP   32
+#define IMAGE_NORM_VIEWED      64
+#define IMAGE_HIGH_VIEWED      128
+
+#define IMAGE_PROCESS_FLAGS (IMAGE_NORM_VIEWED | IMAGE_HIGH_VIEWED)
 
 enum CAMERA_TYPE {
     CAMERA_TYPE_UNKNOWN,
@@ -321,6 +325,7 @@ struct images {
     unsigned char *mask;              /* Buffer for the mask file */
     unsigned char *smartmask;
     unsigned char *smartmask_final;
+    int common_buffer_size;
     unsigned char *common_buffer;
     unsigned char *substream_image;
 
@@ -333,14 +338,18 @@ struct images {
     int *smartmask_buffer;
     int *labels;
     int *labelsize;
-    int width;
-    int height;
+    int width;               /* Width in pixels of captured images */
+    int height;              /* Height in pixels of captured images */
+    int display_width;       /* Width of displayed images */
+    int display_height;      /* Height of displayed images */
     int type;
     int picture_type;                 /* Output picture type IMAGE_JPEG, IMAGE_PPM */
     int size_norm;                    /* Number of bytes for normal size image */
 
-    int width_high;
-    int height_high;
+    int width_high;          /* Width of highres captured images */
+    int height_high;         /* Height of higres captured images */
+    int display_width_high;  /* Width of displayed hires images */
+    int display_height_high; /* Height of displayed hires images */ 
     int size_high;                 /* Number of bytes for high resolution image */
 
     int motionsize;
@@ -359,16 +368,8 @@ enum FLIP_TYPE {
 /* Contains data for image rotation, see rotate.c. */
 struct rotdata {
 
-    unsigned char *buffer_norm;  /* Temporary buffer for 90 and 270 degrees rotation of normal resolution image. */
-    unsigned char *buffer_high;  /* Temporary buffer for 90 and 270 degrees rotation of high resolution image. */
     int degrees;              /* Degrees to rotate; copied from conf.rotate_deg. */
     enum FLIP_TYPE axis;      /* Rotate image over the Horizontal or Vertical axis. */
-
-    int capture_width_norm;            /* Capture width of normal resolution image */
-    int capture_height_norm;           /* Capture height of normal resolution image */
-
-    int capture_width_high;            /* Capture width of high resolution image */
-    int capture_height_high;           /* Capture height of high resolution image */
 
 };
 
