@@ -383,6 +383,7 @@ void image_prep_for_view(struct context *cnt, struct image_data *img, int high,
     int width, height;
     void *image;
 
+    
     /* Determine the raw image dimensions  */
     if (high) {
 	if (img->flags & IMAGE_HIGH_VIEWED) {
@@ -1998,6 +1999,7 @@ static void mlp_resetimages(struct context *cnt)
 
         /* Set flags to 0 */
         cnt->current_image->flags = 0;
+	cnt->imgs.img_motion.flags = 0;
         cnt->current_image->cent_dist = 0;
 
         /* Clear location data */
@@ -2013,7 +2015,6 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->location = old_image->location;
         cnt->current_image->total_labels = old_image->total_labels;
     }
-    cnt->imgs.img_motion.flags = 0;
     cnt->imgs.preview_image.flags = 0;
     
     /* Store time with pre_captured image */
