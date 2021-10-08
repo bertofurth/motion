@@ -222,10 +222,20 @@ struct ffmpeg;
 #define IMAGE_SAVED      8
 #define IMAGE_PRECAP    16
 #define IMAGE_POSTCAP   32
-#define IMAGE_NORM_VIEWED      64
-#define IMAGE_HIGH_VIEWED      128
 
-#define IMAGE_PROCESS_FLAGS (IMAGE_NORM_VIEWED | IMAGE_HIGH_VIEWED)
+/* A "motion" type image */
+#define IMAGE_MOTION_TYPE      64
+
+/* This image has been copied from another image */
+#define IMAGE_COPY             128    
+#define IMAGE_COPY_HIGH        256
+
+/* This image has been prepared for viewing (rotated + text) */
+#define IMAGE_VIEWED           512 
+#define IMAGE_VIEWED_HIGH      1024
+
+#define IMAGE_VIEWED_FLAGS     (IMAGE_VIEWED | IMAGE_VIEWED_HIGH)
+#define IMAGE_COPY_FLAGS       (IMAGE_COPY | IMAGE_COPY_HIGH)
 
 enum CAMERA_TYPE {
     CAMERA_TYPE_UNKNOWN,
@@ -270,12 +280,16 @@ struct image_data {
     */
     unsigned long cent_dist;
 
-    unsigned int flags;         /* Se IMAGE_* defines */
+    unsigned int flags;         /* See IMAGE_* defines */
 
     struct coord location;      /* coordinates for center and size of last motion detection*/
 
     int total_labels;
 
+    int width;        /* For image_norm */
+    int height;      
+    int width_high;   /* For image_high */
+    int height_high; 
 };
 
 struct stream_data {
@@ -318,6 +332,7 @@ struct images {
 
     unsigned char *ref;               /* The reference frame */
     struct image_data img_motion;     /* Picture buffer for motion images */
+    struct image_data *img_motion_disp;   /* For displayed or saved motion images */
     int *ref_dyn;                     /* Dynamic objects to be excluded from reference frame */
     struct image_data image_virgin;   /* Last picture frame with no text or locate overlay */
     struct image_data image_vprvcy;   /* Virgin image with the privacy mask applied */
@@ -341,7 +356,7 @@ struct images {
     int width;               /* Width in pixels of captured images */
     int height;              /* Height in pixels of captured images */
     int display_width;       /* Width of displayed images */
-    int display_height;      /* Height of displayed images */
+    int display_height;      /* Height of displayed images */ 
     int type;
     int picture_type;                 /* Output picture type IMAGE_JPEG, IMAGE_PPM */
     int size_norm;                    /* Number of bytes for normal size image */

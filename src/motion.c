@@ -362,70 +362,118 @@ static void image_add_text_overlay (struct context *cnt, void *image,
  * image_prep_for_view
  *
  * This routine is called to apply needed changes to an image
- * before it is streamed or saved. These changes are
+ * before it is streamed or saved. These changes include
+ *   - Rotate and flip axis
  *   - Add overlay text
- *   - Rotate and flip
+ *
+ * If a "dst" pointer is supplied then the processed image will
+ * be saved to "dst" and no changes will be made to "src".
+ *
+ * This function applies flags to the image so that the same
+ * operation is not performed multiple times on an image.
  *
  * Parameters:
  *
  *      cnt      Pointer to the motion context structure
- *      img      Pointer to the image_data structure of the image
+ *      src      Pointer to the image_data structure of the image
+ *      dst      Copy result to this image if not NULL
  *      high     Is this a "high" resolution version of the image?
- *      motion   Is this a "motion" image?
- *      FUTURE : flags : Only rotate? Only text? Custom rotation or text?
- *
+ *      FUTURE : Specify non default rotation or text?
  *
  * Returns:     nothing
  */
-void image_prep_for_view(struct context *cnt, struct image_data *img, int high,
-			 int motion)
-{
-    int width, height;
-    void *image;
+void image_prep_for_view(struct context *cnt, struct image_data *src,
+			 struct image_data *dst,
+			 int high)
 
+{
+    int width, height, temp;
+    void *image, *temp_image_norm, *temp_image_high;
+    struct image_data *img;
+
+    if (dst != NULL && src != dst) {
+	if (!(dst->flags & IMAGE_COPY_FLAGS)) {
+	    /* Copy image attributes if not already copied */
+	    temp_image_norm = dst->image_norm;
+	    temp_image_high = dst->image_high;
+	    memcpy (dst, src, sizeof(struct image_data));
+	    dst->width = 0;
+	    dst->height = 0;
+	    dst->width_high = 0;
+	    dst->height_high = 0;
+	    dst->flags &= ~(IMAGE_VIEWED_FLAGS | IMAGE_COPY_FLAGS);
+	    dst->image_norm = temp_image_norm;
+	    dst->image_high = temp_image_high;
+	}
+	
+	if (high && !(dst->flags & IMAGE_COPY_HIGH)) {
+	    memcpy(dst->image_high, src->image_high, cnt->imgs.size_high);
+	    dst->flags |= IMAGE_COPY_HIGH;
+	}
+
+	if (!high && !(dst->flags & IMAGE_COPY)) {
+	    memcpy(dst->image_norm, src->image_norm, cnt->imgs.size_norm);
+	    dst->flags |= IMAGE_COPY;
+	}
+	img = dst;
+    } else {
+	img = src;
+    }
     
-    /* Determine the raw image dimensions  */
+    /* Determine the source image dimensions  */
+    /*
+     * BERTO... CAN WE DO SOME DEBUGS TO SEE IF THE SRC IMAGEHEIGHT AND STUFF ARE SET OK?
+     * THEN WE CAN GET RID OF USING "cnr->imgs.width_high" and SO FORTH BERTO */
+    
     if (high) {
-	if (img->flags & IMAGE_HIGH_VIEWED) {
+	if (img->flags & IMAGE_VIEWED_HIGH) {
+	    /* Already prepared this image. */
 	    return;
 	}
-	img->flags |= IMAGE_HIGH_VIEWED;
+	img->flags |= IMAGE_VIEWED_HIGH;
 	width = cnt->imgs.width_high;
 	height = cnt->imgs.height_high;
 	image = img->image_high;
     } else {
-	if (img->flags & IMAGE_NORM_VIEWED) {
+	if (img->flags & IMAGE_VIEWED) {
 	    return;
 	}
-	img->flags |= IMAGE_NORM_VIEWED;
+	img->flags |= IMAGE_VIEWED;
 	width = cnt->imgs.width;
 	height = cnt->imgs.height;
 	image = img->image_norm;
     }
 
-    if (motion && !cnt->conf.picture_output_motion_rotated) {
+    if ((img->flags & IMAGE_MOTION_TYPE) &&
+	!cnt->conf.picture_output_motion_rotated) {
+	/* Rotation disabled for motion images */
 	goto add_text;
     }
 
     if (1 == rotate_img(cnt, image, width, height)) {
 	/*
-	 * Image dimensions changed after rotation
+	 * Image dimensions swapped after rotation
 	 */
 	if (high) {
-	    width = cnt->imgs.display_width_high;
-	    height = cnt->imgs.display_height_high;
+	    img->width_high = height;
+	    img->height_high = width;
 	} else {
-	    width = cnt->imgs.display_width;
-	    height = cnt->imgs.display_height;
+	    img->width = height;
+	    img->height = width;
 	}
+	temp = width;
+	width = height;
+	height = temp;
     }
 
 add_text:
-    if (motion) {
+    if (img->flags & IMAGE_MOTION_TYPE) {
 	image_add_motion_text_overlay (cnt, image, width, height);
     } else {
 	image_add_text_overlay (cnt, image, width, height);
     }
+    /* BERTO Add errors? */
+	
     /* Anything else we need to modify? */
     return;
 } /* image_prep_for_view() */
@@ -1007,16 +1055,17 @@ static void init_mask_privacy(struct context *cnt)
             MOTION_LOG(INF, TYPE_ALL, NO_ERRNO, _("Opening privacy mask file"));
 	    if (cnt->conf.mask_privacy_rotated) {
 		/*
-		 * The mask_privacy pgm has the dimensions of the output image.
+		 * The mask_privacy pgm has the dimensions and orientation of 
+		 * the normal "picture_output" image.
 		 * We need to "unrotate" the pgm so that it matches the 
-		 * captured image dimensions and orientation.
+		 * captured image dimensions and orientation because we apply
+		 * this mask to the captured image, not the output image.
 		 */
 		cnt->imgs.mask_privacy = get_pgm(picture, cnt->imgs.display_width,
 						 cnt->imgs.display_height);
 		unrotate_pgm(cnt, cnt->imgs.mask_privacy, cnt->imgs.display_width,
 			     cnt->imgs.display_height);
 	    } else {
-
 		/*
 		 * The mask_privacy pgm file matches the captured / original
 		 * image dimensions.
@@ -1365,17 +1414,35 @@ static int motion_init(struct context *cnt)
 
     cnt->imgs.ref = mymalloc(cnt->imgs.size_norm);
     cnt->imgs.img_motion.image_norm = mymalloc(cnt->imgs.size_norm);
+    cnt->imgs.img_motion.width = cnt->imgs.width;
+    cnt->imgs.img_motion.height = cnt->imgs.height;
+    cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
+    if (cnt->conf.picture_output_motion_rotated) {
+	cnt->imgs.img_motion_disp = mymalloc(sizeof(struct image_data));
+	cnt->imgs.img_motion_disp->image_norm = mymalloc(cnt->imgs.size_norm);
+	cnt->imgs.img_motion_disp->width = 0;
+	cnt->imgs.img_motion_disp->height = 0;
+	cnt->imgs.img_motion_disp->flags = 0;
+    } else {
+	cnt->imgs.img_motion_disp = &cnt->imgs.img_motion;
+    }
 
     /* contains the moving objects of ref. frame */
     cnt->imgs.ref_dyn = mymalloc(cnt->imgs.motionsize * sizeof(*cnt->imgs.ref_dyn));
     cnt->imgs.image_virgin.image_norm = mymalloc(cnt->imgs.size_norm);
+    cnt->imgs.image_virgin.width = cnt->imgs.width;
+    cnt->imgs.image_virgin.height = cnt->imgs.height;
     cnt->imgs.image_vprvcy.image_norm = mymalloc(cnt->imgs.size_norm);
+    cnt->imgs.image_vprvcy.width = cnt->imgs.width;
+    cnt->imgs.image_vprvcy.height = cnt->imgs.height;
     cnt->imgs.smartmask = mymalloc(cnt->imgs.motionsize);
     cnt->imgs.smartmask_final = mymalloc(cnt->imgs.motionsize);
     cnt->imgs.smartmask_buffer = mymalloc(cnt->imgs.motionsize * sizeof(*cnt->imgs.smartmask_buffer));
     cnt->imgs.labels = mymalloc(cnt->imgs.motionsize * sizeof(*cnt->imgs.labels));
     cnt->imgs.labelsize = mymalloc((cnt->imgs.motionsize/2+1) * sizeof(*cnt->imgs.labelsize));
     cnt->imgs.preview_image.image_norm = mymalloc(cnt->imgs.size_norm);
+    cnt->imgs.preview_image.width = cnt->imgs.width;
+    cnt->imgs.preview_image.height = cnt->imgs.height;
     /*
      * common_buffer is potentially used to rotate hires images
      * so this buffer might be increased later.
@@ -1384,7 +1451,11 @@ static int motion_init(struct context *cnt)
     cnt->imgs.common_buffer = mymalloc(cnt->imgs.common_buffer_size);
     if (cnt->imgs.size_high > 0) {
         cnt->imgs.image_virgin.image_high = mymalloc(cnt->imgs.size_high);
+	cnt->imgs.image_virgin.width_high = cnt->imgs.width_high;
+	cnt->imgs.image_virgin.height_high = cnt->imgs.height_high;
         cnt->imgs.preview_image.image_high = mymalloc(cnt->imgs.size_high);
+	cnt->imgs.preview_image.width_high = cnt->imgs.width_high;
+	cnt->imgs.preview_image.height_high = cnt->imgs.height_high;
     }
 
     mot_stream_init(cnt);
@@ -1661,7 +1732,13 @@ static void motion_cleanup(struct context *cnt)
 
     free(cnt->imgs.img_motion.image_norm);
     cnt->imgs.img_motion.image_norm = NULL;
-
+    
+    if (cnt->conf.picture_output_motion_rotated) {
+	free(cnt->imgs.img_motion_disp->image_norm);
+	free(cnt->imgs.img_motion_disp);
+    }
+    cnt->imgs.img_motion_disp = NULL;
+    
     free(cnt->imgs.ref);
     cnt->imgs.ref = NULL;
 
@@ -1999,9 +2076,16 @@ static void mlp_resetimages(struct context *cnt)
 
         /* Set flags to 0 */
         cnt->current_image->flags = 0;
-	cnt->imgs.img_motion.flags = 0;
         cnt->current_image->cent_dist = 0;
 
+	/* Reset motion image attributes */
+	cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
+	if (cnt->imgs.img_motion_disp != &cnt->imgs.img_motion) {
+	    cnt->imgs.img_motion_disp->flags = 0;
+	    cnt->imgs.img_motion_disp->width = 0;
+	    cnt->imgs.img_motion_disp->height = 0;
+	}
+	
         /* Clear location data */
         memset(&cnt->current_image->location, 0, sizeof(cnt->current_image->location));
         cnt->current_image->total_labels = 0;
@@ -2011,10 +2095,16 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->timestamp_tv = old_image->timestamp_tv;
         cnt->current_image->shot = old_image->shot;
         cnt->current_image->cent_dist = old_image->cent_dist;
-        cnt->current_image->flags = old_image->flags & (~(IMAGE_SAVED | IMAGE_PROCESS_FLAGS));
+        cnt->current_image->flags = old_image->flags & (~(IMAGE_SAVED |
+							  IMAGE_VIEWED_FLAGS |
+							  IMAGE_COPY_FLAGS));
         cnt->current_image->location = old_image->location;
         cnt->current_image->total_labels = old_image->total_labels;
     }
+    cnt->current_image->width = cnt->imgs.width;
+    cnt->current_image->height = cnt->imgs.height;
+    cnt->current_image->width_high = cnt->imgs.width_high;
+    cnt->current_image->height_high = cnt->imgs.height_high;
     cnt->imgs.preview_image.flags = 0;
     
     /* Store time with pre_captured image */
@@ -2809,7 +2899,6 @@ static void mlp_loopback(struct context *cnt)
      * sends all detected pictures to the stream except the 1st per second which is already sent.
      */
     if (cnt->conf.setup_mode) {
-
         event(cnt, EVENT_IMAGE, &cnt->imgs.img_motion, NULL, &cnt->pipe, &cnt->current_image->timestamp_tv);
         event(cnt, EVENT_STREAM, &cnt->imgs.img_motion, NULL, NULL, &cnt->current_image->timestamp_tv);
     } else {
