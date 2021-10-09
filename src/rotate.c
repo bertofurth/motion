@@ -334,7 +334,7 @@ int rotate_img(struct context *cnt, unsigned char *img, int width, int height){
     h2 = 0;
     temp_buff = cnt->imgs.common_buffer;
 
-    memset (temp_buff, 0xff, cnt->imgs.common_buffer_size); /* BERTO DELME */
+//    memset (temp_buff, 0xff, cnt->imgs.common_buffer_size); /* BERTO DELME */
     MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO
 	       ,_("Rotating image height %d width %d degrees %d axis %d")
 	       ,height, width, deg, axis);

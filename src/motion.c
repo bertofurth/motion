@@ -1424,7 +1424,7 @@ static int motion_init(struct context *cnt)
     cnt->imgs.img_motion.width = cnt->imgs.width;
     cnt->imgs.img_motion.height = cnt->imgs.height;
     cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
-    if (0 && cnt->conf.picture_output_motion_rotated) {   /* BERTO */
+    if (cnt->conf.picture_output_motion_rotated) {   
 	cnt->imgs.img_motion_disp = mymalloc(sizeof(struct image_data));
 	cnt->imgs.img_motion_disp->image_norm = mymalloc(cnt->imgs.size_norm);
 	cnt->imgs.img_motion_disp->width = cnt->imgs.display_width;
@@ -1754,7 +1754,7 @@ static void motion_cleanup(struct context *cnt)
     free(cnt->imgs.img_motion.image_norm);
     cnt->imgs.img_motion.image_norm = NULL;
     
-    if (0 && cnt->conf.picture_output_motion_rotated) {  /* BERTO */
+    if (cnt->conf.picture_output_motion_rotated) {
 	free(cnt->imgs.img_motion_disp->image_norm);
 	free(cnt->imgs.img_motion_disp);
     }
