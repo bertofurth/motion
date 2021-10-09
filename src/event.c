@@ -379,7 +379,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
             if (cnt->stream_motion.jpeg_data == NULL) {
                 cnt->stream_motion.jpeg_data = mymalloc(cnt->imgs.size_norm);
             }
-            if (cnt->imgs.img_motion.image_norm != NULL) {
+            if (cnt->imgs.img_motion_disp->image_norm != NULL) {
                 image_prep_for_view(cnt, &cnt->imgs.img_motion,
 				    cnt->imgs.img_motion_disp, 0);
                 cnt->stream_motion.jpeg_size = put_picture_memory(cnt

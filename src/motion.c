@@ -281,6 +281,7 @@ static void image_add_motion_text_overlay (struct context *cnt, void *image,
 {
 
     char tmp[PATH_MAX];
+    static int berto = 1;
 
     /*
      * Add changed pixels to motion-images (for stream) and in
@@ -295,11 +296,12 @@ static void image_add_motion_text_overlay (struct context *cnt, void *image,
         draw_text(image, width, height, width - 10,
 		  height - (30 * cnt->text_scale),
                   tmp, cnt->text_scale);
-        sprintf(tmp, "THREAD %d SETUP", cnt->threadnr);
+        sprintf(tmp, "THREAD %d SETUP BERTO %d", cnt->threadnr, berto);
         draw_text(image, width, height, width - 10,
 		  height - (10 * cnt->text_scale),
                   tmp, cnt->text_scale);
     }
+    berto++;
 } /* image_add_motion_text_overlay() */
 
 /**
@@ -399,10 +401,6 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
 	    temp_image_norm = dst->image_norm;
 	    temp_image_high = dst->image_high;
 	    memcpy (dst, src, sizeof(struct image_data));
-	    dst->width = 0;
-	    dst->height = 0;
-	    dst->width_high = 0;
-	    dst->height_high = 0;
 	    dst->flags &= ~(IMAGE_VIEWED_FLAGS | IMAGE_COPY_FLAGS);
 	    dst->image_norm = temp_image_norm;
 	    dst->image_high = temp_image_high;
@@ -426,7 +424,7 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
     /*
      * BERTO... CAN WE DO SOME DEBUGS TO SEE IF THE SRC IMAGEHEIGHT AND STUFF ARE SET OK?
      * THEN WE CAN GET RID OF USING "cnr->imgs.width_high" and SO FORTH BERTO */
-    
+
     if (high) {
 	if (img->flags & IMAGE_VIEWED_HIGH) {
 	    /* Already prepared this image. */
@@ -440,6 +438,8 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
 	if (img->flags & IMAGE_VIEWED) {
 	    return;
 	}
+	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
+		   ,_("BERTO src->width %d src->height %d"), src->width, src->height);
 	img->flags |= IMAGE_VIEWED;
 	width = cnt->imgs.width;
 	height = cnt->imgs.height;
@@ -471,6 +471,11 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
 add_text:
     if (img->flags & IMAGE_MOTION_TYPE) {
 	image_add_motion_text_overlay (cnt, image, width, height);
+#ifdef BERTO_DELME
+	if (src != dst) {
+	    image_add_motion_text_overlay (cnt, src->image_norm, width, height);
+	}
+#endif
     } else {
 	image_add_text_overlay (cnt, image, width, height);
     }
@@ -1419,11 +1424,11 @@ static int motion_init(struct context *cnt)
     cnt->imgs.img_motion.width = cnt->imgs.width;
     cnt->imgs.img_motion.height = cnt->imgs.height;
     cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
-    if (cnt->conf.picture_output_motion_rotated) {
+    if (0 && cnt->conf.picture_output_motion_rotated) {   /* BERTO */
 	cnt->imgs.img_motion_disp = mymalloc(sizeof(struct image_data));
 	cnt->imgs.img_motion_disp->image_norm = mymalloc(cnt->imgs.size_norm);
-	cnt->imgs.img_motion_disp->width = 0;
-	cnt->imgs.img_motion_disp->height = 0;
+	cnt->imgs.img_motion_disp->width = cnt->imgs.display_width;
+	cnt->imgs.img_motion_disp->height = cnt->imgs.display_height;
 	cnt->imgs.img_motion_disp->flags = 0;
 	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
 		   ,_("BERTO ROTATED %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
@@ -1435,11 +1440,6 @@ static int motion_init(struct context *cnt)
 		   &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
 
     }
-
-    MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
-	       ,_("BERTO %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
-	       &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
-    
     
     /* contains the moving objects of ref. frame */
     cnt->imgs.ref_dyn = mymalloc(cnt->imgs.motionsize * sizeof(*cnt->imgs.ref_dyn));
@@ -1754,7 +1754,7 @@ static void motion_cleanup(struct context *cnt)
     free(cnt->imgs.img_motion.image_norm);
     cnt->imgs.img_motion.image_norm = NULL;
     
-    if (cnt->conf.picture_output_motion_rotated) {
+    if (0 && cnt->conf.picture_output_motion_rotated) {  /* BERTO */
 	free(cnt->imgs.img_motion_disp->image_norm);
 	free(cnt->imgs.img_motion_disp);
     }
@@ -2099,14 +2099,6 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->flags = 0;
         cnt->current_image->cent_dist = 0;
 
-	/* Reset motion image attributes */
-	cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
-	if (cnt->imgs.img_motion_disp != &cnt->imgs.img_motion) {
-	    cnt->imgs.img_motion_disp->flags = 0;
-	    cnt->imgs.img_motion_disp->width = 0;
-	    cnt->imgs.img_motion_disp->height = 0;
-	}	
-
         /* Clear location data */
         memset(&cnt->current_image->location, 0, sizeof(cnt->current_image->location));
         cnt->current_image->total_labels = 0;
@@ -2122,6 +2114,12 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->location = old_image->location;
         cnt->current_image->total_labels = old_image->total_labels;
     }
+    
+    /* Reset motion image attributes */
+    cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
+    if (cnt->imgs.img_motion_disp != &cnt->imgs.img_motion) {
+	cnt->imgs.img_motion_disp->flags = IMAGE_MOTION_TYPE;
+    }	
 
     cnt->current_image->width = cnt->imgs.width;
     cnt->current_image->height = cnt->imgs.height;
@@ -2572,6 +2570,10 @@ static void mlp_overlay(struct context *cnt)
      * picture frame is captured.
      */
 
+#ifdef BERTO_DEBUG
+        MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
+	       ,_("BERTO APPLYING MOTION OVERLAYS "));
+#endif
     /* Smartmask overlay */
     if (cnt->smartmask_speed &&
         (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
