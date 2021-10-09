@@ -311,7 +311,6 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
 {
     int subsize;
 
-
     (void)eventtype;
     (void)filename;
     (void)eventdata;
@@ -325,7 +324,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
                 cnt->stream_norm.jpeg_data = mymalloc(cnt->imgs.size_norm);
             }
             if (img_data->image_norm != NULL) {
-		image_prep_for_view(cnt, img_data, NULL, 0);
+                image_prep_for_view(cnt, img_data, NULL, 0);
                 cnt->stream_norm.jpeg_size = put_picture_memory(cnt
                     ,cnt->stream_norm.jpeg_data
                     ,cnt->imgs.size_norm
@@ -342,7 +341,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
                 cnt->stream_sub.jpeg_data = mymalloc(cnt->imgs.size_norm);
             }
             if (img_data->image_norm != NULL) {
-		image_prep_for_view(cnt, img_data, NULL, 0);
+                image_prep_for_view(cnt, img_data, NULL, 0);
                 /* Resulting substream image must be multiple of 8 */
                 if (((img_data->width  % 16) == 0)  &&
                     ((img_data->height % 16) == 0)) {
@@ -381,7 +380,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
                 cnt->stream_motion.jpeg_data = mymalloc(cnt->imgs.size_norm);
             }
             if (cnt->imgs.img_motion.image_norm != NULL) {
-		image_prep_for_view(cnt, &cnt->imgs.img_motion,
+                image_prep_for_view(cnt, &cnt->imgs.img_motion,
 				    cnt->imgs.img_motion_disp, 0);
                 cnt->stream_motion.jpeg_size = put_picture_memory(cnt
                     ,cnt->stream_motion.jpeg_data
@@ -400,7 +399,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
             }
             if (cnt->imgs.image_virgin.image_norm != NULL) {
 		/*
-		 * Note : The "virgin" captured image stream
+		 * Note : The "source" captured image stream
 		 * is not rotated.
 		 */
                 cnt->stream_source.jpeg_size = put_picture_memory(cnt
@@ -486,12 +485,12 @@ static void event_image_detect(struct context *cnt, motion_event eventtype
 
         passthrough = util_check_passthrough(cnt);
         if ((cnt->imgs.size_high > 0) && (!passthrough)) {
-	    image_prep_for_view(cnt, img_data, NULL, 1);
+            image_prep_for_view(cnt, img_data, NULL, 1);
             put_picture(cnt, fullfilename,img_data->image_high, FTYPE_IMAGE,
 			img_data->width_high,
 			img_data->height_high);
         } else {
-	    image_prep_for_view(cnt, img_data, NULL, 0);
+            image_prep_for_view(cnt, img_data, NULL, 0);
             put_picture(cnt, fullfilename,img_data->image_norm, FTYPE_IMAGE,
 			img_data->width, img_data->height);
         }
@@ -536,7 +535,7 @@ static void event_imagem_detect(struct context *cnt, motion_event eventtype
             , cnt->conf.target_dir
             , (int)(PATH_MAX-2-strlen(cnt->conf.target_dir)-strlen(imageext(cnt)))
             , filenamem, imageext(cnt));
-	image_prep_for_view(cnt, &cnt->imgs.img_motion,
+        image_prep_for_view(cnt, &cnt->imgs.img_motion,
 			    cnt->imgs.img_motion_disp, 0);
         put_picture(cnt, fullfilenamem, cnt->imgs.img_motion_disp->image_norm,
 		    FTYPE_IMAGE_MOTION,
@@ -593,7 +592,7 @@ static void event_image_snapshot(struct context *cnt, motion_event eventtype
             put_picture(cnt, fullfilename, img_data->image_high, FTYPE_IMAGE_SNAPSHOT,
 			img_data->width_high, img_data->height_high);
         } else {
-	    image_prep_for_view(cnt, img_data, NULL, 0);
+            image_prep_for_view(cnt, img_data, NULL, 0);
             put_picture(cnt, fullfilename, img_data->image_norm, FTYPE_IMAGE_SNAPSHOT,
 			img_data->width, img_data->height);
         }
@@ -633,7 +632,7 @@ static void event_image_snapshot(struct context *cnt, motion_event eventtype
 			img_data->width_high,
 			img_data->height_high);
         } else {
-	    image_prep_for_view(cnt, img_data, NULL, 0);
+            image_prep_for_view(cnt, img_data, NULL, 0);
             put_picture(cnt, fullfilename, img_data->image_norm, FTYPE_IMAGE_SNAPSHOT,
 			img_data->width, img_data->height);
         }
@@ -707,12 +706,12 @@ static void event_image_preview(struct context *cnt, motion_event eventtype
 
             passthrough = util_check_passthrough(cnt);
             if ((cnt->imgs.size_high > 0) && (!passthrough)) {
-		image_prep_for_view(cnt, &cnt->imgs.preview_image, NULL, 1);
+	        image_prep_for_view(cnt, &cnt->imgs.preview_image, NULL, 1);
                 put_picture(cnt, previewname, cnt->imgs.preview_image.image_high , FTYPE_IMAGE,
 			    cnt->imgs.preview_image.width_high,
 			    cnt->imgs.preview_image.height_high);
             } else {
-		image_prep_for_view(cnt, &cnt->imgs.preview_image, NULL, 0);
+	        image_prep_for_view(cnt, &cnt->imgs.preview_image, NULL, 0);
                 put_picture(cnt, previewname, cnt->imgs.preview_image.image_norm , FTYPE_IMAGE,
 			    cnt->imgs.preview_image.width,
 			    cnt->imgs.preview_image.height);
@@ -1257,13 +1256,13 @@ static void event_ffmpeg_put(struct context *cnt, motion_event eventtype
     (void)eventdata;
 
     if (cnt->ffmpeg_output) {
-	image_prep_for_view(cnt, img_data, NULL, 0);   
+        image_prep_for_view(cnt, img_data, NULL, 0);   
         if (ffmpeg_put_image(cnt->ffmpeg_output, img_data, tv1) == -1) {
             MOTION_LOG(ERR, TYPE_EVENTS, NO_ERRNO, _("Error encoding image"));
         }
     }
     if (cnt->ffmpeg_output_motion) {
-	image_prep_for_view(cnt, &cnt->imgs.img_motion,
+        image_prep_for_view(cnt, &cnt->imgs.img_motion,
 			    cnt->imgs.img_motion_disp, 0); 
         if (ffmpeg_put_image(cnt->ffmpeg_output_motion, cnt->imgs.img_motion_disp, tv1) == -1) {
             MOTION_LOG(ERR, TYPE_EVENTS, NO_ERRNO, _("Error encoding image"));

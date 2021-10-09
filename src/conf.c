@@ -3327,9 +3327,9 @@ static void config_parms_intl()
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","despeckle_filter",_("despeckle_filter"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","area_detect",_("area_detect"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_file",_("mask_file"));
-	MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_file_rotated",_("mask_file_rotated"));
+        MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_file_rotated",_("mask_file_rotated"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_privacy",_("mask_privacy"));
-	MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_privacy_rotated",_("mask_privacy_rotated"));
+        MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","mask_privacy_rotated",_("mask_privacy_rotated"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","smart_mask_speed",_("smart_mask_speed"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","lightswitch_percent",_("lightswitch_percent"));
         MOTION_LOG(DBG, TYPE_ALL, NO_ERRNO,"%s:%s","lightswitch_frames",_("lightswitch_frames"));
