@@ -282,15 +282,14 @@ static void image_add_motion_text_overlay (struct context *cnt, void *image,
 
     char tmp[PATH_MAX];
 
-    MOTION_LOG(DBG, TYPE_EVENTS, NO_ERRNO
-	       ,_("Adding motion text to image height %d width %d")
-	       ,height, width);
-
     /*
      * Add changed pixels to motion-images (for stream) and in
      * setup_mode.
      */
     if (cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0)) {
+	MOTION_LOG(DBG, TYPE_EVENTS, NO_ERRNO
+		   ,_("Adding motion text to image height %d width %d")
+		   ,height, width);
         sprintf(tmp, "D:%5d L:%3d N:%3d", cnt->current_image->diffs,
                 cnt->current_image->total_labels, cnt->noise);
         draw_text(image, width, height, width - 10,
@@ -391,6 +390,9 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
     void *image, *temp_image_norm, *temp_image_high;
     struct image_data *img;
 
+    MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
+	       ,_("BERTO %s src->flags %d high %d src 0x%p dst 0x%p "), __FUNCTION__, src->flags, high, src, dst);
+    
     if (dst != NULL && src != dst) {
 	if (!(dst->flags & IMAGE_COPY_FLAGS)) {
 	    /* Copy image attributes if not already copied */
@@ -1423,10 +1425,22 @@ static int motion_init(struct context *cnt)
 	cnt->imgs.img_motion_disp->width = 0;
 	cnt->imgs.img_motion_disp->height = 0;
 	cnt->imgs.img_motion_disp->flags = 0;
+	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
+		   ,_("BERTO ROTATED %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
+		   &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
     } else {
 	cnt->imgs.img_motion_disp = &cnt->imgs.img_motion;
+	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
+		   ,_("BERTO NOT ROTATED %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
+		   &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
+
     }
 
+    MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
+	       ,_("BERTO %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
+	       &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
+    
+    
     /* contains the moving objects of ref. frame */
     cnt->imgs.ref_dyn = mymalloc(cnt->imgs.motionsize * sizeof(*cnt->imgs.ref_dyn));
     cnt->imgs.image_virgin.image_norm = mymalloc(cnt->imgs.size_norm);
@@ -1536,7 +1550,14 @@ static int motion_init(struct context *cnt)
                 ,_("Opening video loopback device for motion pictures"));
 
             /* vid_startpipe should get the output dimensions */
-            cnt->mpipe = vlp_startpipe(cnt->conf.video_pipe_motion, cnt->imgs.width, cnt->imgs.height);
+	    if (cnt->conf.picture_output_motion_rotated) {
+		cnt->mpipe = vlp_startpipe(cnt->conf.video_pipe_motion,
+					   cnt->imgs.display_width,
+					   cnt->imgs.display_height);
+	    } else {
+		cnt->mpipe = vlp_startpipe(cnt->conf.video_pipe_motion,
+				   cnt->imgs.width, cnt->imgs.height);
+	    }
 
             if (cnt->mpipe < 0) {
                 MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO
@@ -2084,8 +2105,8 @@ static void mlp_resetimages(struct context *cnt)
 	    cnt->imgs.img_motion_disp->flags = 0;
 	    cnt->imgs.img_motion_disp->width = 0;
 	    cnt->imgs.img_motion_disp->height = 0;
-	}
-	
+	}	
+
         /* Clear location data */
         memset(&cnt->current_image->location, 0, sizeof(cnt->current_image->location));
         cnt->current_image->total_labels = 0;
@@ -2101,6 +2122,7 @@ static void mlp_resetimages(struct context *cnt)
         cnt->current_image->location = old_image->location;
         cnt->current_image->total_labels = old_image->total_labels;
     }
+
     cnt->current_image->width = cnt->imgs.width;
     cnt->current_image->height = cnt->imgs.height;
     cnt->current_image->width_high = cnt->imgs.width_high;
