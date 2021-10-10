@@ -1,7 +1,7 @@
 Motion with "Just in Time" Rotation
 ===================================
 
-TLDNR : These proposed changes can save up to about 25%
+TLDNR : These proposed changes can save up to about 15%
 CPU load in the idle state when 90 or 270 degree rotation 
 is applied for images.
 
@@ -58,6 +58,17 @@ we save a measurable amount of CPU resources, particuarly when
 
 Some further miniscule CPU savings are made by not performing
 "flip on axis" or text annoation of images until they are needed.
+
+### Images only rotated and annotated with text if being viewed
+If an image is not going to be viewed, that is, if it's not 
+being saved to disk or be streamed, then there is no need to rotate
+it or apply text annotations.
+
+The most significant CPU savings are made by not performing
+90 and 270 degree rotation unless it is necessary.
+
+In addition, some smaller CPU savings are made by not making
+other annotations on images.
 
 ### Rotation buffers consolidated with common buffer
 Originally, the rotation functions had their own dedicated buffers
@@ -130,8 +141,7 @@ and "video_pipe_motion".
 
 If set to "on" then motion images will have "rotate" and "flip_axis"
 parameters applied as per normal pictures. Rotation, particularly 90 and
-270 degree rotation, can consume significant CPU resources. This feature
-also consumes a small amount of extra memory.
+270 degree rotation, can consume significant CPU resources. 
 
 By setting this feature to "off", motion debugging images will not be 
 rotated. This will save CPU and memory resources while motion debugging
@@ -192,9 +202,8 @@ A table of the test results is below showing the following
 columns
 
 **Scenario** - Either **Idle** indicating no motion was being
-detected or **emulate motion** indicating that 
-"emulate_motion on" is configured to simulate motion detection
-all the time. The scene being monitored was static. 
+detected during the test or **Motion** indicating that motion
+was detected for the entire test.
 
 **Rot** - The "rotate" parameter was set to either 0 or 90.
 
@@ -221,26 +230,35 @@ command run in a different terminal window on the same machine.
     ps -o etime,cputime $(pidof motion) ; sleep 600; ps -o etime,cputime $(pidof motion)
     
 
-### Original motion
-
-| Scenario          | Rot  | M Out  | Stream | M Strm | Orig  |  JIT | NRJIT |
-|-------------------|------|--------|--------|--------|-------|------|-------|
-| Idle              |  0   | off    | no     | no     |    93 |      |       |
-| Idle              | 90   | off    | no     | no     |?  105 |      |       |
-| Idle              |  0   | off    | yes    | no     |    98 |      |       |
-| Idle              | 90   | off    | yes    | no     |   111 |      |       |
-| Idle              |  0   | off    | no     | yes    |    93 |      |       |       
-| Idle              | 90   | off    | no     | yes    |   111 |      |       |
-| Idle              |  0   | off    | yes    | yes    |   103 |      |       |
-| Idle              | 90   | off    | yes    | yes    |   114 |      |       |
-| Emulate Motion    |  0   | off    | no     | no     |    92 |      |       |
-| Emulate Motion    | 90   | off    | no     | no     |   100 |      |       |
-| Emulate Motion    |  0   | on     | no     | no     |   100 |      |       |
-| Emulate Motion    | 90   | on     | no     | no     |   116 |      |       |
-| Emulate Motion    | 90   | on     | yes    | yes    | ? 180 |      |       |
-
+| Scenario  | Rot  | M Out  | Stream | M Strm |  Orig |  JIT | NRJIT |
+|-----------|------|--------|--------|--------|-------|------|-------|
+| Idle      |  0   | off    | no     | no     |    93 |   89 |    91 |
+| Idle      | 90   | off    | no     | no     |?  105 |   92 |    90 |
+| Idle      |  0   | off    | yes    | no     |    98 |   96 |    96 |
+| Idle      | 90   | off    | yes    | no     |   111 |   98 |    96 |
+| Idle      |  0   | off    | no     | yes    | ?  93 |   92 |    93 |       
+| Idle      | 90   | off    | no     | yes    |   111 |   95 |    92 |
+| Idle      |  0   | off    | yes    | yes    |   103 |   99 |    98 |
+| Idle      | 90   | off    | yes    | yes    |   114 |  101 |    99 |
+| Motion    |  0   | off    | no     | no     |       |      |       |
+| Motion    | 90   | off    | no     | no     |   134 |      |       |
+| Motion    |  0   | on     | no     | no     |       |      |       |
+| Motion    | 90   | on     | no     | no     |   140 |      |       |
+| Motion    |  0   | on     | yes    | yes    |       |      |       |
+| Motion    | 90   | on     | yes    | yes    |   160  |      |       |
 
 
+
+
+| Emulate Motion  |  0   | off    | no     | no     |    92 |      |       |
+| Emulate Motion  | 90   | off    | no     | no     |   100 |      |       |
+| Emulate Motion  |  0   | on     | no     | no     |   100 |      |       |
+| Emulate Motion  | 90   | on     | no     | no     |   116 |      |       |
+| Emulate Motion  | 90   | on     | yes    | yes    | ? 180 |      |       |
+
+
+The most important result shows that in the idle state, Just In Time
+motion uses approximately 13% less CPU resources than normal motion.
 
 
 
