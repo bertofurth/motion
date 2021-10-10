@@ -188,7 +188,8 @@ frames per second.
 "picture_output on" and "movie_output off" were configured 
 so that pictures but not movies would be saved.
 
-The following characterics were applied to tests.
+A table of the test results is below showing the following
+columns
 
 **Scenario** - Either **Idle** indicating no motion was being
 detected or **emulate motion** indicating that 
@@ -197,12 +198,20 @@ all the time. The scene being monitored was static.
 
 **Rot** - The "rotate" parameter was set to either 0 or 90.
 
-**Motion Output** - The "picture_output_motion" is set to either
+**M Out** - The "picture_output_motion" is set to either
 on or off to generate motion debugging images.
 
 **Stream** - One user is viewing the normal stream
 
-**Motion Stream** - One user is viewing the motion stream
+**M Strm** - One user is viewing the motion stream
+
+**Orig** - CPU time used by "Original" motion
+
+**JIT** - CPU time used by Just In Time Rotation motion.
+
+**NRJIT** - CPU time used by Just In Time Rotation motion with
+"picture_output_motion_rotated off" to stop motion debug images
+from being rotated.
 
 CPU time was measured by starting motion, giving the program approximately
 30 seconds to initialize and stablize, then recording cpu seconds utilized 
@@ -214,59 +223,24 @@ command run in a different terminal window on the same machine.
 
 ### Original motion
 
-| Scenario          | Rot  | Motion | Stream | Motion | CPU   |
-|                   |      | Output |        | Stream | Time  |      
-|-------------------|------|--------|--------|--------|-------|
-| Idle              |  0   | off    | no     | no     |    93 |
-| Idle              | 90   | off    | no     | no     |   105 |   ?
-| Idle              |  0   | off    | yes    | no     |    98 |
-| Idle              | 90   | off    | yes    | no     |   111 |
-| Idle              |  0   | off    | no     | yes    |    93 |
-| Idle              | 90   | off    | no     | yes    |   111 |
-| Idle              |  0   | off    | yes    | yes    |   103 |
-| Idle              | 90   | off    | yes    | yes    |   114 |
-| Emulate Motion    |  0   | off    | no     | no     |    92 |
-| Emulate Motion    | 90   | off    | no     | no     |   100 |
-| Emulate Motion    |  0   | on     | no     | no     |   100 |
-| Emulate Motion    | 90   | on     | no     | no     |   116 |
-| Emulate Motion    | 90   | on     | yes    | yes    |   180 |
+| Scenario          | Rot  | M Out  | Stream | M Strm | Orig  |  JIT | NRJIT |
+|-------------------|------|--------|--------|--------|-------|------|-------|
+| Idle              |  0   | off    | no     | no     |    93 |      |       |
+| Idle              | 90   | off    | no     | no     |?  105 |      |       |
+| Idle              |  0   | off    | yes    | no     |    98 |      |       |
+| Idle              | 90   | off    | yes    | no     |   111 |      |       |
+| Idle              |  0   | off    | no     | yes    |    93 |      |       |       
+| Idle              | 90   | off    | no     | yes    |   111 |      |       |
+| Idle              |  0   | off    | yes    | yes    |   103 |      |       |
+| Idle              | 90   | off    | yes    | yes    |   114 |      |       |
+| Emulate Motion    |  0   | off    | no     | no     |    92 |      |       |
+| Emulate Motion    | 90   | off    | no     | no     |   100 |      |       |
+| Emulate Motion    |  0   | on     | no     | no     |   100 |      |       |
+| Emulate Motion    | 90   | on     | no     | no     |   116 |      |       |
+| Emulate Motion    | 90   | on     | yes    | yes    | ? 180 |      |       |
 
 
 
-
-### Just in Time rotation motion
-
-| Scenario          | Rot  | Motion | Stream | Motion | CPU   |
-|                   |      | Output |        | Stream | Time  |      
-|-------------------|------|--------|--------|--------|-------|
-| Idle              |  0   | off    | no     | no     |       |
-| Idle              | 90   | off    | no     | no     |       |   
-| Idle              |  0   | off    | yes    | no     |       |
-| Idle              | 90   | off    | yes    | no     |       |
-| Idle              |  0   | off    | no     | yes    |       |
-| Idle              | 90   | off    | no     | yes    |       |
-| Idle              |  0   | off    | yes    | yes    |       |
-| Idle              | 90   | off    | yes    | yes    |       |
-| Emulate Motion    |  0   | off    | no     | no     |       |
-| Emulate Motion    | 90   | off    | no     | no     |       |
-| Emulate Motion    |  0   | on     | no     | no     |       |
-| Emulate Motion    | 90   | on     | no     | no     |       |
-| Emulate Motion    | 90   | on     | yes    | yes    |       |
-
-
-
-
-
- 
-
-
-
-
-### "Just In Time" rotation with "picture_output_motion_rotated on"
-
-
-
-### "Just In Time" rotation with "picture_output_motion_rotated off"
 
 
 
