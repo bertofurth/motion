@@ -397,7 +397,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
             if (cnt->stream_source.jpeg_data == NULL) {
                 cnt->stream_source.jpeg_data = mymalloc(cnt->imgs.size_norm);
             }
-            if (cnt->imgs.image_virgin.image_norm != NULL) {
+	    if (cnt->imgs.image_vprvcy.image_norm != NULL) {
 		/*
 		 * Note : The "source" captured image stream
 		 * is not rotated.
@@ -405,7 +405,7 @@ static void event_stream_put(struct context *cnt, motion_event eventtype
                 cnt->stream_source.jpeg_size = put_picture_memory(cnt
                     ,cnt->stream_source.jpeg_data
                     ,cnt->imgs.size_norm
-                    ,cnt->imgs.image_virgin.image_norm
+		    ,cnt->imgs.image_vprvcy.image_norm
                     ,cnt->conf.stream_quality
                     ,cnt->imgs.width
                     ,cnt->imgs.height);

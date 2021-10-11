@@ -259,6 +259,52 @@ static void image_save_as_preview(struct context *cnt, struct image_data *img)
     }
 }
 
+/**
+ * image_add_motion_overlay
+ *
+ * This routine applies graphical overlays to the "motion"
+ * images as seen in a stream or in setup mode.
+ *
+ * This must be called *before* the motion image is rotated.
+ *
+ * Parameters:
+ *
+ *      cnt      Pointer to the motion context structure
+ *      image    Pointer to the raw image data
+ */
+static void image_add_motion_overlay(struct context *cnt, unsigned char *image)
+{
+
+    char tmp[PATH_MAX];
+
+    /*
+     * Some overlays on top of the motion image
+     * Note that these now modifies the cnt->imgs.out so this buffer
+     * can no longer be used for motion detection features until next
+     * picture frame is captured.
+     */
+
+    /* Smartmask overlay */
+    if (cnt->smartmask_speed &&
+        (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
+         cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0))) {
+        overlay_smartmask(cnt, image);
+    }
+
+    /* Largest labels overlay */
+    if (cnt->imgs.largest_label && (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
+        cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0))) {
+        overlay_largest_label(cnt, image);
+    }
+
+    /* Fixed mask overlay */
+    if (cnt->imgs.mask && (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
+        cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0))) {
+        overlay_fixed_mask(cnt, image);
+    }
+
+} /* image_add_motion_overlay() */
+
 
 /**
  * image_add_motion_text_overlay
@@ -281,13 +327,12 @@ static void image_add_motion_text_overlay (struct context *cnt, void *image,
 {
 
     char tmp[PATH_MAX];
-    static int berto = 1;
 
     /*
      * Add changed pixels to motion-images (for stream) and in
      * setup_mode.
      */
-    if (cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0)) {
+    if (1 || cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0)) {
 	MOTION_LOG(DBG, TYPE_EVENTS, NO_ERRNO
 		   ,_("Adding motion text to image height %d width %d")
 		   ,height, width);
@@ -296,12 +341,11 @@ static void image_add_motion_text_overlay (struct context *cnt, void *image,
         draw_text(image, width, height, width - 10,
 		  height - (30 * cnt->text_scale),
                   tmp, cnt->text_scale);
-        sprintf(tmp, "THREAD %d SETUP BERTO %d", cnt->threadnr, berto);
+        sprintf(tmp, "THREAD %d SETUP", cnt->threadnr);
         draw_text(image, width, height, width - 10,
 		  height - (10 * cnt->text_scale),
                   tmp, cnt->text_scale);
     }
-    berto++;
 } /* image_add_motion_text_overlay() */
 
 /**
@@ -368,10 +412,13 @@ static void image_add_text_overlay (struct context *cnt, void *image,
  *   - Add overlay text
  *
  * If a "dst" pointer is supplied then the processed image will
- * be saved to "dst" and no changes will be made to "src".
+ * be copied and saved to "dst". No changes will be made to "src".
  *
  * This function applies flags to the image so that the same
  * operation is not performed multiple times on an image.
+ *
+ * This function assumes that img->width and img->height
+ * reflect the dimensions of the source image.
  *
  * Parameters:
  *
@@ -388,13 +435,10 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
 			 int high)
 
 {
-    int width, height, temp;
+    int temp, width, height;
     void *image, *temp_image_norm, *temp_image_high;
     struct image_data *img;
 
-    MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
-	       ,_("BERTO %s src->flags %d high %d src 0x%p dst 0x%p "), __FUNCTION__, src->flags, high, src, dst);
-    
     if (dst != NULL && src != dst) {
 	if (!(dst->flags & IMAGE_COPY_FLAGS)) {
 	    /* Copy image attributes if not already copied */
@@ -419,11 +463,6 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
     } else {
 	img = src;
     }
-    
-    /* Determine the source image dimensions  */
-    /*
-     * BERTO... CAN WE DO SOME DEBUGS TO SEE IF THE SRC IMAGEHEIGHT AND STUFF ARE SET OK?
-     * THEN WE CAN GET RID OF USING "cnr->imgs.width_high" and SO FORTH BERTO */
 
     if (high) {
 	if (img->flags & IMAGE_VIEWED_HIGH) {
@@ -431,57 +470,55 @@ void image_prep_for_view(struct context *cnt, struct image_data *src,
 	    return;
 	}
 	img->flags |= IMAGE_VIEWED_HIGH;
-	width = cnt->imgs.width_high;
-	height = cnt->imgs.height_high;
 	image = img->image_high;
+	width = img->width_high;
+	height = img->height_high;
     } else {
 	if (img->flags & IMAGE_VIEWED) {
 	    return;
 	}
-	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
-		   ,_("BERTO src->width %d src->height %d"), src->width, src->height);
 	img->flags |= IMAGE_VIEWED;
-	width = cnt->imgs.width;
-	height = cnt->imgs.height;
 	image = img->image_norm;
+	width = img->width;
+	height = img->height;
     }
 
-    if ((img->flags & IMAGE_MOTION_TYPE) &&
-	!cnt->conf.picture_output_motion_rotated) {
-	/* Rotation disabled for motion images */
-	goto add_text;
-    }
-
-    if (1 == rotate_img(cnt, image, width, height)) {
-	/*
-	 * Image dimensions swapped after rotation
-	 */
-	if (high) {
-	    img->width_high = height;
-	    img->height_high = width;
-	} else {
-	    img->width = height;
-	    img->height = width;
+    if (img->flags & IMAGE_MOTION_TYPE) {
+	image_add_motion_overlay(cnt, image);
+	if (!cnt->conf.picture_output_motion_rotated) {
+	    /* Skip rotation. */
+	    goto add_text;
 	}
-	temp = width;
-	width = height;
-	height = temp;
+    }
+
+    if (high) {
+	if (1 == rotate_img(cnt, image, img->width_high, img->height_high)) {
+	    /* Image dimensions swapped after rotation */
+	    temp = img->width_high;
+	    img->width_high = img->height_high;
+	    img->height_high = temp;
+	    width = img->width_high;
+	    height = img->height_high;
+	}
+    } else {
+	if (1 == rotate_img(cnt, image, img->width, img->height)) {
+	    temp = img->width;
+	    img->width = img->height;
+	    img->height = temp;
+	    width = img->width;
+	    height = img->height;
+	}
     }
 
 add_text:
     if (img->flags & IMAGE_MOTION_TYPE) {
 	image_add_motion_text_overlay (cnt, image, width, height);
-#ifdef BERTO_DELME
-	if (src != dst) {
-	    image_add_motion_text_overlay (cnt, src->image_norm, width, height);
-	}
-#endif
     } else {
 	image_add_text_overlay (cnt, image, width, height);
     }
-    /* BERTO Add errors? */
-	
-    /* Anything else we need to modify? */
+    
+    /* Future : Add text overlay error messages? */
+
     return;
 } /* image_prep_for_view() */
 
@@ -1424,21 +1461,14 @@ static int motion_init(struct context *cnt)
     cnt->imgs.img_motion.width = cnt->imgs.width;
     cnt->imgs.img_motion.height = cnt->imgs.height;
     cnt->imgs.img_motion.flags = IMAGE_MOTION_TYPE;
-    if (cnt->conf.picture_output_motion_rotated) {   
+    if (cnt->conf.picture_output_motion_rotated) {
 	cnt->imgs.img_motion_disp = mymalloc(sizeof(struct image_data));
 	cnt->imgs.img_motion_disp->image_norm = mymalloc(cnt->imgs.size_norm);
 	cnt->imgs.img_motion_disp->width = cnt->imgs.display_width;
 	cnt->imgs.img_motion_disp->height = cnt->imgs.display_height;
 	cnt->imgs.img_motion_disp->flags = 0;
-	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
-		   ,_("BERTO ROTATED %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
-		   &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
     } else {
 	cnt->imgs.img_motion_disp = &cnt->imgs.img_motion;
-	MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
-		   ,_("BERTO NOT ROTATED %s &cnt->imgs.img_motion 0x%p cnt->imgs.img_motion_disp 0x%p "), __FUNCTION__,
-		   &cnt->imgs.img_motion, cnt->imgs.img_motion_disp);
-
     }
     
     /* contains the moving objects of ref. frame */
@@ -2557,44 +2587,6 @@ static void mlp_tuning(struct context *cnt)
 
 }
 
-static void mlp_overlay(struct context *cnt)
-{
-
-    char tmp[PATH_MAX];
-
-    /***** MOTION LOOP - TEXT AND GRAPHICS OVERLAY SECTION *****/
-    /*
-     * Some overlays on top of the motion image
-     * Note that these now modifies the cnt->imgs.out so this buffer
-     * can no longer be used for motion detection features until next
-     * picture frame is captured.
-     */
-
-#ifdef BERTO_DEBUG
-        MOTION_LOG(ERR, TYPE_EVENTS, SHOW_ERRNO
-	       ,_("BERTO APPLYING MOTION OVERLAYS "));
-#endif
-    /* Smartmask overlay */
-    if (cnt->smartmask_speed &&
-        (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
-         cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0))) {
-        overlay_smartmask(cnt, cnt->imgs.img_motion.image_norm);
-    }
-
-    /* Largest labels overlay */
-    if (cnt->imgs.largest_label && (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
-        cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0))) {
-        overlay_largest_label(cnt, cnt->imgs.img_motion.image_norm);
-    }
-
-    /* Fixed mask overlay */
-    if (cnt->imgs.mask && (cnt->conf.picture_output_motion || cnt->conf.movie_output_motion ||
-        cnt->conf.setup_mode || (cnt->stream_motion.cnct_count > 0))) {
-        overlay_fixed_mask(cnt, cnt->imgs.img_motion.image_norm);
-    }
-
-}
-
 static void mlp_actions(struct context *cnt)
 {
 
@@ -3109,7 +3101,6 @@ static void *motion_loop(void *arg)
                 }
                 mlp_detection(cnt);
                 mlp_tuning(cnt);
-                mlp_overlay(cnt);
                 mlp_actions(cnt);
                 mlp_setupmode(cnt);
             }
