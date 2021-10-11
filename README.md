@@ -152,11 +152,12 @@ used for debugging, have to have extra CPU resources applied to them
 in order to rotate them when they are being generated for a stream or
 file output.
 
-This causes these proposed changes use more CPU than originally in
+This *may* cause these proposed changes use more CPU than originally in
 the case where the "picture_output_motion" or motion streaming feature
-was in use and rotation was being applied.
+was in use AND rotation was being applied AND normal images were being
+viewed or generated. Hopefully this type of scenario is rare.
 
-See the section below on "Rotation of "motion" images and movies"
+See the section entitled "Rotation of "motion" images and movies"
 for a proposed workaround using a new configuration option.
 
 ### Error messages and debug text overlays
