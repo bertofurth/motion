@@ -27,10 +27,10 @@ The main change this fork makes is that image files are
 internally stored in the original, as captured orientation.
 
 A brief test of these changes using "rotation 90" reduced
-motion's CPU utilization in the "idle state" by about 18% of
-what it otherwise may have been when using a 640x480 stream
-at 10 frames per second. See the "Performance Tests" section
-for more details.
+motion's CPU utilization in the "idle state" with no active
+streams or picture output by about 18% of what it otherwise
+may have been when using a 640x480 stream at 10 frames per
+second. See the "Performance Tests" section for more details.
 
 The trade-off is a slight memory usage increase due to the
 binary executable being slightly larger and needing to reserve
