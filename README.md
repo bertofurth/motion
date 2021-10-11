@@ -32,7 +32,7 @@ what it otherwise may have been when using a 640x480 stream
 at 4 frames per second. See the "Performance Tests" section
 for more details.
 
-The tradeoff is a slight memory usage increase due to the
+The trade-off is a slight memory usage increase due to the
 binary executable being slightly larger and needing to reserve
 some extra memory to cater for rotated images.
 
@@ -53,22 +53,22 @@ stored internally within motion in their unrotated, and largely
 unprocessed form.
 
 By not rotating images until they actually need to be rotated
-we save a measurable amount of CPU resources, particuarly when
+we save a measurable amount of CPU resources, particularly when
 90 or 270 degree rotation is used.
 
 Some further miniscule CPU savings are made by not performing
-"flip on axis" or text annoation of images until they are needed.
+"flip on axis" or text annotation of images until they are needed.
 
 ### Images only rotated and annotated with text if being viewed
 If an image is not going to be viewed, that is, if it's not 
 being saved to disk or be streamed, then there is no need to rotate
-it or apply text annotations.
+it or apply text and graphical annotations.
 
 The most significant CPU savings are made by not performing
 90 and 270 degree rotation unless it is necessary.
 
 In addition, some smaller CPU savings are made by not making
-other annotations on images.
+other annotations on images unless they are going to be viewed.
 
 ### Rotation buffers consolidated with common buffer
 Originally, the rotation functions had their own dedicated buffers
@@ -87,10 +87,10 @@ be the same dimensions as the output file we now have to internally
 "unrotate" the mask files.
 
 It could potentially be better going forward to specify that masks
-apply to the original captured image dimentions because this way a
+apply to the original captured image dimensions because this way a
 user can arbitrarily change the rotation or the flip axis of the
 displayed image without having to worry about making corresponding 
-changes to the privacy mask.
+changes to the privacy mask. 
 
 For this reason there are two new boolean (on/off) configuration file
 options. 
@@ -186,8 +186,8 @@ automatically generate one based on the dimensions of a
 generated image. (See put_fixed_mask() for details)
 
 With these changes the generated file will be based on the
-captured image dimentions rather than the generated image
-dimentions. This might be an issue where 90 or 270 degree
+captured image dimensions rather than the generated image
+dimensions. This might be an issue where 90 or 270 degree
 rotation has been configured.
 
 ## Performance Tests
@@ -203,71 +203,71 @@ columns
 
 **Scenario** - Either **Idle** indicating no motion was being
 detected during the test or **Motion** indicating that motion
-was detected for the entire test.
+was detected for the entire test. Motion was simulated with
+a flashing light on an otherwise static scene.
 
-**Rot** - The "rotate" parameter was set to either 0 or 90.
+**Rot** - The "rotate" parameter is set to either 0 or 90
+degrees.
 
-**M Out** - The "picture_output_motion" is set to either
-on or off to generate motion debugging images.
+**M Out** - The "picture_output_motion" parameter is set to either
+off or on to generate motion debugging images.
 
-**Stream** - One user is viewing the normal stream
+**Stream** - One client is viewing the normal stream.
 
-**M Strm** - One user is viewing the motion stream
+**M Strm** - One client is viewing the motion stream.
 
-**Orig** - CPU time used by "Original" motion
+**Orig** - CPU seconds used by unaltered, original motion.
 
-**JIT** - CPU time used by Just In Time Rotation motion.
+**JIT** - CPU seconds used by Just In Time Rotation motion.
 
-**NRJIT** - CPU time used by Just In Time Rotation motion with
-"picture_output_motion_rotated off" to stop motion debug images
-from being rotated.
+**JIT-NR** - CPU seconds used by Just In Time Rotation motion
+with no motion image rotation. That is, the new configuration
+parameter "picture_output_motion_rotated off" is set. Normal 
+images are still being rotated but motion images are not
+rotated.
 
-CPU time was measured by starting motion, giving the program approximately
-30 seconds to initialize and stablize, then recording cpu seconds utilized 
-over 600 seconds of run time using the output of the following "bash"
-command run in a different terminal window on the same machine.
+CPU time was measured by starting motion, giving the program at least 
+30 seconds to initialize and stabilize, then recording CPU seconds
+utilized over 600 seconds of run time using the output of the following
+shell command run in a different terminal window on the same machine.
 
     ps -o etime,cputime $(pidof motion) ; sleep 600; ps -o etime,cputime $(pidof motion)
-    
 
-| Scenario  | Rot  | M Out  | Stream | M Strm |  Orig |  JIT | NRJIT |
-|-----------|------|--------|--------|--------|-------|------|-------|
-| Idle      |  0   | off    | no     | no     |    93 |   89 |    91 |
-| Idle      | 90   | off    | no     | no     |?  105 |   92 |    90 |
-| Idle      |  0   | off    | yes    | no     |    98 |   96 |    96 |
-| Idle      | 90   | off    | yes    | no     |   111 |   98 |    96 |
-| Idle      |  0   | off    | no     | yes    | ?  93 |   92 |    93 |       
-| Idle      | 90   | off    | no     | yes    |   111 |   95 |    92 |
-| Idle      |  0   | off    | yes    | yes    |   103 |   99 |    98 |
-| Idle      | 90   | off    | yes    | yes    |   114 |  101 |    99 |
-| Motion    |  0   | off    | no     | no     |       |      |       |
-| Motion    | 90   | off    | no     | no     |   134 |      |       |
-| Motion    |  0   | on     | no     | no     |       |      |       |
-| Motion    | 90   | on     | no     | no     |   140 |      |       |
-| Motion    |  0   | on     | yes    | yes    |       |      |       |
-| Motion    | 90   | on     | yes    | yes    |   160  |      |       |
+I did not have time to test every permutation of features. I focused
+on the "idle" state because that's the state where motion spends most 
+of it's time in normal operation.
 
 
+| Scenario  | Rot  | M Out  | Stream | M Strm |  Orig |  JIT | JIT-NR | 
+|-----------|------|--------|--------|--------|-------|------|--------|
+| Idle      |  0   | off    | no     | no     |    94 |   89 |     91 |   
+| Idle      | 90   | off    | no     | no     |   111 |   92 |     90 |   
+| Idle      |  0   | off    | yes    | no     |   100 |   96 |     96 |   
+| Idle      | 90   | off    | yes    | no     |   116 |   98 |     96 |   
+| Idle      |  0   | off    | no     | yes    |    98 |   92 |     93 |    
+| Idle      | 90   | off    | no     | yes    |   115 |   95 |     92 |   
+| Idle      |  0   | off    | yes    | yes    |   104 |   99 |     98 |   
+| Idle      | 90   | off    | yes    | yes    |   121 |  101 |     99 |   
+| Motion    |  0   | off    | no     | no     |   110?|  108?|        |
+| Motion    | 90   | off    | no     | no     |   150?|  140?|        |   
+| Motion    |  0   | on     | no     | no     |   114?|  114?|        |
+| Motion    | 90   | on     | no     | no     |   140?|      |        |   
+| Motion    |  0   | on     | yes    | yes    |   133?|  148?|        |
+| Motion    | 90   | on     | yes    | yes    |   180?|  176?|    157?|  
 
 
-| Emulate Motion  |  0   | off    | no     | no     |    92 |      |       |
-| Emulate Motion  | 90   | off    | no     | no     |   100 |      |       |
-| Emulate Motion  |  0   | on     | no     | no     |   100 |      |       |
-| Emulate Motion  | 90   | on     | no     | no     |   116 |      |       |
-| Emulate Motion  | 90   | on     | yes    | yes    | ? 180 |      |       |
+The most important result shows that in the idle state with 90 degree rotation
+and no active streams, Just In Time motion uses up to 18% less CPU resources
+than normal motion.
 
-
-The most important result shows that in the idle state, Just In Time
-motion uses approximately 13% less CPU resources than normal motion.
-
-
-
-
-
+I had a great deal of difficulty getting consistent results with the "Motion"
+scenario so a lot of those are not filled in. I expected CPU utilization to
+increase slightly with Just In Time motion where a motion stream was being
+viewed but CPU utilization still seems to go down.
 
 ## Future work
 The proposed changes might make it easy to implement some of these
-other new functionaly which might (or might not) be useful.
+other new functionality which might (or might not) be useful.
 
 ### Different text/rotation for streams and saved images
 Users could optionally apply separate rotation and text 
@@ -280,7 +280,7 @@ of changed pixels or different labels etc.
 Another example might be that you could have no rotation on the stream
 but still have saved images undergo rotation or vice versa.
 
-The tradeoff would be that extra CPU resources would have to
+The trade-off would be that extra CPU resources would have to
 be utilized if both the stream were active and pictures were
 being saved with different parameters at the same time.
 
@@ -289,9 +289,8 @@ state or if only a single stream / picture output process was engaged.
 
 ### Extra stream types
 As per the previous idea, it might be possible to create extra
-stream types using different properties. For example the normal 
+stream types using different properties. For example, the normal 
 stream might have no rotation but "stream2" may have 90 degree rotation.
-
 
 
 
