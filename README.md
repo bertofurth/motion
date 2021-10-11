@@ -1,7 +1,7 @@
 Motion with "Just in Time" Rotation
 ===================================
 
-TLDNR : These proposed changes can save up to about 15%
+TLDNR : These proposed changes can save up to around 18%
 CPU load in the idle state when 90 or 270 degree rotation 
 is applied for images.
 
@@ -27,16 +27,16 @@ The main change this fork makes is that image files are
 internally stored in the original, as captured orientation.
 
 A brief test of these changes using "rotation 90" reduced
-motion's CPU utilization in the "idle state" by about 20% of
+motion's CPU utilization in the "idle state" by about 18% of
 what it otherwise may have been when using a 640x480 stream
-at 4 frames per second. See the "Performance Tests" section
+at 10 frames per second. See the "Performance Tests" section
 for more details.
 
 The trade-off is a slight memory usage increase due to the
 binary executable being slightly larger and needing to reserve
 some extra memory to cater for rotated images.
 
-In addition CPU utilization may be slightly increased compared 
+In addition CPU utilization *may* be slightly increased compared 
 to the original version of motion where "motion" debugging images
 were being saved and/or viewed in a stream at the same time as
 normal images were being saved and/or viewed in a stream. My 
@@ -58,17 +58,6 @@ we save a measurable amount of CPU resources, particularly when
 
 Some further miniscule CPU savings are made by not performing
 "flip on axis" or text annotation of images until they are needed.
-
-### Images only rotated and annotated with text if being viewed
-If an image is not going to be viewed, that is, if it's not 
-being saved to disk or be streamed, then there is no need to rotate
-it or apply text and graphical annotations.
-
-The most significant CPU savings are made by not performing
-90 and 270 degree rotation unless it is necessary.
-
-In addition, some smaller CPU savings are made by not making
-other annotations on images unless they are going to be viewed.
 
 ### Rotation buffers consolidated with common buffer
 Originally, the rotation functions had their own dedicated buffers
@@ -92,8 +81,8 @@ user can arbitrarily change the rotation or the flip axis of the
 displayed image without having to worry about making corresponding 
 changes to the privacy mask. 
 
-For this reason there are two new boolean (on/off) configuration file
-options. 
+For this reason there are two proposed new boolean (on/off) configuration
+file options. 
 
 #### privacy_mask_rotated 
 Type: Boolean
@@ -221,10 +210,8 @@ off or on to generate motion debugging images.
 **JIT** - CPU seconds used by Just In Time Rotation motion.
 
 **JIT-NR** - CPU seconds used by Just In Time Rotation motion
-with no motion image rotation. That is, the new configuration
-parameter "picture_output_motion_rotated off" is set. Normal 
-images are still being rotated but motion images are not
-rotated.
+with no "motion" image rotation. That is, the new configuration
+parameter "picture_output_motion_rotated off" is set. 
 
 CPU time was measured by starting motion, giving the program at least 
 30 seconds to initialize and stabilize, then recording CPU seconds
@@ -266,8 +253,8 @@ increase slightly with Just In Time motion where a motion stream was being
 viewed but CPU utilization still seems to go down.
 
 ## Future work
-The proposed changes might make it easy to implement some of these
-other new functionality which might (or might not) be useful.
+Here are some new features that might not be too difficult to implement
+with the proposed changes in place.
 
 ### Different text/rotation for streams and saved images
 Users could optionally apply separate rotation and text 
