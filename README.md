@@ -15,7 +15,7 @@ the changes suggested in
 https://github.com/Motion-Project/motion/issues/1321
 
 The suggestion was to only perform the CPU intensive
-task of image rotation only when images were actually
+task of image rotation when images were actually
 being viewed via a web stream or when they are being
 saved.
 
