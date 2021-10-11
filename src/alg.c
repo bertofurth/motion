@@ -1281,9 +1281,6 @@ static char alg_diff_fast(struct context *cnt, int max_n_changes, unsigned char 
     int noise = cnt->noise;
     unsigned char *ref = imgs->ref;
 
-    if (step < 33) {
-	step = 33;
-    } /* BERTO */
     if (!step % 2) {
         step++;
     }
@@ -1401,7 +1398,7 @@ int alg_switchfilter(struct context *cnt, int diffs, unsigned char *newimg)
  *   action - UPDATE_REF_FRAME or RESET_REF_FRAME
  *
  */
-#define ACCEPT_STATIC_OBJECT_TIME 1  /* Seconds */  /* BERTO GET RID OF WAS 10*/
+#define ACCEPT_STATIC_OBJECT_TIME 10  /* Seconds */
 #define EXCLUDE_LEVEL_PERCENT 20
 void alg_update_reference_frame(struct context *cnt, int action)
 {
